@@ -1,178 +1,31 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>学マス育成シミュ</title>
+<title>学マスツール</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f5f3f0;--card:#fff;--ink:#23212b;--mute:#79768a;--line:#e3dfe9;--vo:#e8456b;--da:#3a7bd5;--vi:#d99a00;--ok:#16895a;--ng:#d6455d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648;--ok:#4cc790;--ng:#ff7088}}
-:root[data-theme="dark"]{--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648;--ok:#4cc790;--ng:#ff7088}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
+:root{--bg:#f5f3f0;--card:#fff;--ink:#23212b;--mute:#79768a;--line:#e3dfe9;--vo:#e8456b;--da:#3a7bd5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648}}
+:root[data-theme="dark"]{--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding-bottom:96px}
-header{display:flex;align-items:center;gap:8px;padding:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-.dot{width:26px;height:26px;border-radius:50%;flex:none;background:var(--ic,var(--line));border:1px solid var(--line)}
-select,input,button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 8px;min-width:0}
-select{font-weight:700;font-size:16px}
-#id{width:150px;border-radius:999px;padding:8px 10px}
-#id{border:2px solid color-mix(in srgb,var(--ic,var(--line)) 80%,var(--mute));background:color-mix(in srgb,var(--ic,var(--card)) 16%,var(--card))}
-main{padding:12px 12px 0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px}
-h2{margin:0 0 8px;font-size:16px}
-.g4{display:grid;grid-template-columns:44px repeat(3,1fr);gap:6px;align-items:center}
-.g4 b{text-align:center;font-size:14px}.g4 i{font-style:normal;color:var(--mute);font-size:13px}
-.g4 input{width:100%;text-align:center;padding:9px 2px}
-.g4 .n{text-align:center;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
-.vo{color:var(--vo)}.da{color:var(--da)}.vi{color:var(--vi)}
-.ok{color:var(--ok)}.ng{color:var(--ng)}
-.rw{border-top:1px solid var(--line);padding:8px 0}
-.rh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.rh b{width:36px;font-variant-numeric:tabular-nums}
-.ty{width:40px;font-weight:800;padding:6px 0}
-.rh label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--mute)}
-.rh label input{width:54px;padding:6px 2px;text-align:center;color:var(--ink);font-size:15px}
-.rw.ey .gr{visibility:hidden}
-.cs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.ce{display:flex;flex-direction:column;align-items:center;padding:6px 2px;border-width:2px;min-height:58px}
-.ce .lv{font-size:12px;color:var(--mute)}
-.ce em{font-style:normal;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
-.ce.k0.s1,.ce.k0.s2{border-color:var(--vo);background:color-mix(in srgb,var(--vo) 14%,var(--card))}
-.ce.k1.s1,.ce.k1.s2{border-color:var(--da);background:color-mix(in srgb,var(--da) 14%,var(--card))}
-.ce.k2.s1,.ce.k2.s2{border-color:var(--vi);background:color-mix(in srgb,var(--vi) 16%,var(--card))}
-.ce.s2 .lv{font-weight:800;color:var(--ink)}
-.sm{border-top:2px solid var(--line);margin-top:6px;padding-top:8px}
-.sm.g4{row-gap:6px}
-.rs{width:100%;margin-top:4px;padding:9px;color:var(--mute)}
-.ce.sg{border-style:dashed}
-.ce.sg.k0{border-color:color-mix(in srgb,var(--vo) 50%,var(--card));background:color-mix(in srgb,var(--vo) 6%,var(--card))}
-.ce.sg.k1{border-color:color-mix(in srgb,var(--da) 50%,var(--card));background:color-mix(in srgb,var(--da) 6%,var(--card))}
-.ce.sg.k2{border-color:color-mix(in srgb,var(--vi) 55%,var(--card));background:color-mix(in srgb,var(--vi) 7%,var(--card))}
-.ce.sg em{opacity:.5}
-.ex{grid-column:2/-1;width:100%}
-.exn{grid-column:2/-1;font-size:12px;color:var(--mute);margin-top:-2px}
-.rs.ask{color:var(--ng);font-weight:700}
-#rs{width:auto;margin:0;padding:12px 18px;border-radius:999px;font-weight:700;color:var(--ink);border:2px solid color-mix(in srgb,var(--ic,var(--line)) 80%,var(--mute));box-shadow:0 4px 14px rgba(0,0,0,.18)}
-#rs.ask{color:var(--ng);border-color:var(--ng)}
-footer{padding:4px 16px 0;font-size:12px;color:var(--mute);text-align:center}
-footer a{color:inherit}footer b{font-weight:700}footer p{margin:10px 0 0}
-#fab{position:fixed;z-index:3;right:max(16px,calc((100vw - 560px)/2 + 16px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:flex-end;gap:10px}
-#menu{display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition:opacity .15s,transform .15s}
-#fab:not(.open) #menu{opacity:0;transform:translateY(10px);visibility:hidden;pointer-events:none}
-#tg{width:54px;height:54px;padding:0;border-radius:50%;display:grid;place-items:center;border:2px solid color-mix(in srgb,var(--ic,var(--line)) 80%,var(--mute));box-shadow:0 4px 14px rgba(0,0,0,.18)}
-#tg .up{display:flex;color:var(--ink)}#tg .up svg{display:block}#tg .x{display:none;font-size:26px;line-height:1;color:var(--mute)}
-#fab.open #tg .up{display:none}#fab.open #tg .x{display:block}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding:24px 16px 40px}
+h1{margin:0 0 16px;font-size:22px}
+.tool{display:flex;align-items:center;gap:12px;min-height:76px;padding:14px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--ac);border-radius:12px;color:inherit;text-decoration:none}
+.tool:hover,.tool:focus-visible{border-color:var(--ac)}
+.tool:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.tx{flex:1;min-width:0}
+.tool b{display:block;font-size:17px}
+.tool span{display:block;margin-top:2px;font-size:13px;color:var(--mute)}
+.tool svg{flex:none;color:var(--mute)}
+footer{margin-top:24px;font-size:12px;color:var(--mute);text-align:center}
 </style></head>
 <body>
-<div id="fab"><div id="menu"><header><select id="id" aria-label="アイドル"></select></header><button class="rs" id="rs">↺ リセット</button></div><button id="tg" aria-label="メニュー" aria-expanded="false"><span class="up" aria-hidden="true"><svg viewBox="0 0 16 10" width="22" height="14"><path d="M2 8 8 2l6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="x" aria-hidden="true">×</span></button></div>
-<main id="app"></main>
-<footer><b>参考</b><br><a href="https://seesaawiki.jp/gakumasu/d/N.I.A/%A5%DE%A5%B9%A5%BF%A1%BC" target="_blank" rel="noopener">学園アイドルマスターwiki「N.I.A/マスター」</a><p>本ツールは非公式のファンメイドツールです。<br>「学園アイドルマスター」の公式とは一切関係ありません。</p></footer>
-<script>
-const SEED=[{"n":"清夏","s":[110,130,90],"m":[0.146,0.506,0.409],"t":[375,950,600,650,1600,1050]},{"n":"ことね","s":[100,111,132],"m":[0.143,0.606,0.488],"t":[350,950,600,620,1650,1050]},{"n":"咲季","s":[110,118,147],"m":[0.242,0.339,0.532],"t":["◎450",700,830,"◎850","△1100",1500]},{"n":"広","s":[190,123,80],"m":[0.541,0.499,0.163],"t":[830,650,"◎400",1440,1140,720]},{"n":"広元","s":[189,138,110],"m":[0.439,0.4,0.121],"t":[900,710,430,1450,1140,"×581"]},{"n":"千奈","s":[105,148,142],"m":[0.191,0.509,0.454],"t":[360,940,630,630,1760,1090]},{"n":"麻央","s":[215,120,117],"m":[0.476,0.129,0.487],"t":[940,370,580,1620,620,1030]},{"n":"莉波","s":[85,112,112],"m":[0.173,0.436,0.575],"t":["◎450",680,840,690,1160,1460]},{"n":"佑芽","s":[150,111,100],"m":[0.341,0.52,0.192],"t":[660,830,"◎450",1170,1460,680]},{"n":"手毬","s":[190,138,80],"m":[0.418,0.541,0.12],"t":[990,630,"◎430","△1550",1100,"◎710"]},{"n":"美鈴","s":[145,125,129],"m":[0.517,0.135,0.42],"t":["◎880",330,"◎640",1590,620,900]},{"n":"リーリヤ","s":[105,117,127],"m":[0.201,0.44,0.533],"t":["◎440",670,830,730,1150,1460]},{"n":"星南","s":[null,null,null],"m":[0.298,0.101,0.495],"t":[null,null,null,null,null,null]},{"n":"燕","s":[null,null,null],"m":[0.346,0.532,0.193],"t":[null,null,null,null,null,null]}];
-const $=id=>document.getElementById(id),KEY="gakumas-ikusei-v1";
-// N.I.A 審査基準の○最低値 [得意,普通,苦手]（学マスwiki N.I.A/マスター より。"?"付きは誤差大）
-const EXAM=[["メロBang!","ハーモニーToNight","MusicOrder"],["GALAXYミュージック","POPFair","MELODYJourney"],["FINALE","QUARTET","IDOLBigup!","SingleCut"]];
-const OK={B:{"メロBang!":"311?,252?,147?","ハーモニーToNight":"282?,234?,136?","MusicOrder":"258?,205?,129?","GALAXYミュージック":"826,657,395","POPFair":"780?,624?,373","MELODYJourney":"738?,585?,355?","FINALE":"1428,1136,682","QUARTET":"1203,957,575","IDOLBigup!":"1131?,904?,548?","SingleCut":"1054?,874?,536?"},
- P:{"メロBang!":"349,217?,134?","ハーモニーToNight":"335?,212?,135?","MusicOrder":"298?,212?,114?","GALAXYミュージック":"941,584,358","POPFair":"890?,559?,339?","MELODYJourney":"840?,547?,318?","FINALE":"1628,1009,619","QUARTET":"1371,850,522","IDOLBigup!":"1286?,801?,501?","SingleCut":"1203?,786?,483?"}};
-// 審査基準タイプと 得意→普通→苦手 の並び（0=Vo,1=Da,2=Vi）
-const JT={"咲季":["B",[2,1,0]],"手毬":["P",[0,1,2]],"ことね":["P",[1,2,0]],"麻央":["P",[0,2,1]],"リーリヤ":["B",[2,1,0]],"千奈":["P",[1,2,0]],"清夏":["P",[1,2,0]],"広":["B",[0,1,2]],"広元":["B",[0,1,2]],"星南":["B",[2,0,1]],"美鈴":["P",[0,2,1]],"佑芽":["B",[1,0,2]],"莉波":["B",[2,1,0]]};
-const okv=(n,e)=>{const j=JT[n];if(!j)return null;const a=OK[j[0]][e].split(","),r=["","",""];let u=false;j[1].forEach((k,i)=>{u=u||a[i].includes("?");r[k]=a[i].replace("?","")});return{r,u}};
-const COL={"清夏":"#7cfc00","ことね":"#f8c112","咲季":"#e30f25","広":"#00afcc","広元":"#00afcc","千奈":"#f68b1f","麻央":"#7f1184","莉波":"#f6adc6","佑芽":"#ea533a","手毬":"#0c7bbb","美鈴":"#7a99cf","リーリヤ":"#eafdff","星南":"#f6ae54","燕":"#7b68ee"};
-const paint=()=>{if(COL[cur])document.documentElement.style.setProperty("--ic",COL[cur]);$("rs").title=cur+"のデータを初期値に戻す（目標は残す）"};
-const T0=[["レ",80,100],["営",80,0],["レ",80,100],["営",80,0],["営",80,0],["レ",100,120],["営",110,0],["レ",100,120],["営",110,0],["レ",120,150],["営",130,0],["レ",120,150],["営",130,0],["レ",120,150]];
-const DT=["1/8","1/7","1/5","1/4","1/2","2/6","2/5","2/3","2/2","3/7","3/6","3/4","3/3","3/2"];
-const RG=[[0,5],[5,9],[9,14]],NA=["Vo","Da","Vi"],CL=["vo","da","vi"];
-const sv=v=>v==null?"":String(v);
-let D={},cur=SEED[0].n;
-try{const x=JSON.parse(localStorage.getItem(KEY));if(x){D=x.D||{};if(x.cur)cur=x.cur;if(x.pv!=2)Object.values(D).forEach(o=>{o.m=o.m.map(v=>v===""?"":String(+(parseFloat(v)*100).toFixed(3)))})}}catch(e){}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({D,cur,pv:2}))}catch(e){}}
-function fresh(n){const s=SEED.find(x=>x.n==n);return{s:s.s.map(sv),m:s.m.map(v=>v==null?"":String(+(v*100).toFixed(3))),t:s.t.map(sv),t0:["","",""],r1:["","",""],r2:["","",""],w:T0.map(r=>[...r,0,0,0])}}
-const d=()=>{const o=D[cur]||(D[cur]=fresh(cur));if(!o.t0)o.t0=["","",""];if(!o.ex)o.ex=["","",""];if(!o.exv){o.exv=1;if(JT[cur])[0,1,2].forEach(bi=>applyEx(o,bi,EXAM[bi][0]))}return o};
-function applyEx(x,bi,e){x.ex[bi]=e;const v=e&&okv(cur,e);if(v)v.r.forEach((val,k)=>{if(bi)x.t[(bi-1)*3+k]=val;else x.t0[k]=val})}
-const tgv=(x,bi,k)=>nn(bi?x.t[(bi-1)*3+k]:x.t0[k]);
-const nn=v=>{const x=parseInt(String(v).replace(/\D/g,""),10);return isNaN(x)?null:x};
-const th=()=>NA.map((n,k)=>`<b class="${CL[k]}">${n}</b>`).join("");
-const inp=(f,k,m)=>`<input data-f="${f}" data-k="${k}" inputmode="${m||"numeric"}" value="${d()[f][k]}">`;
-const trio=(f,m,ph)=>[0,1,2].map(k=>inp(f,k,m)).join("");
-const ids=(p,bi)=>[0,1,2].map(k=>`<span class="n" id="${p}${bi}_${k}"></span>`).join("");
-function rowH(i){const w=d().w[i];
- return `<div class="rw" id="w${i}"><div class="rh"><b>${DT[i]}</b><button class="ty" data-i="${i}">${w[0]}</button><label>成功<input inputmode="numeric" data-w="${i}" data-j="1" value="${w[1]}"></label><label class="gr">大成功<input inputmode="numeric" data-w="${i}" data-j="2" value="${w[2]}"></label></div><div class="cs">${[0,1,2].map(k=>`<button class="ce k${k}" id="c${i}_${k}" data-i="${i}" data-k="${k}"><span class="lv"></span><em id="g${i}_${k}"></em></button>`).join("")}</div></div>`}
-function render(){
- const x=d();
- let h=`<div class="card"><h2>初期ステータス / 補正倍率</h2><div class="g4"><i></i>${th()}<i>ステ</i>${trio("s")}<i>補正%</i>${trio("m","decimal")}</div></div>`;
- RG.forEach(([a,b],bi)=>{
-  h+=`<div class="card"><h2>${bi+1}次まで</h2>`;
-  for(let i=a;i<b;i++)h+=rowH(i);
-  h+=`<div class="sm g4"><i></i>${th()}<i>予測</i>${ids("p",bi)}`;
-  h+=`<i>試験</i><select class="ex" data-ex="${bi}"><option value="">手入力</option>${JT[cur]?EXAM[bi].map(e=>`<option${x.ex[bi]==e?" selected":""} value="${e}">${e}</option>`).join(""):""}</select>${JT[cur]?"":`<span class="exn">${cur}は審査基準が未判明なので手入力のみ</span>`}`;
-  h+=`<i>目標</i>${[0,1,2].map(k=>bi?inp("t",(bi-1)*3+k,"text"):inp("t0",k,"text")).join("")}<i>差分</i>${ids("d",bi)}<i>提案後</i>${ids("q",bi)}`;
-  if(bi<2)h+=`<i>結果</i>${[0,1,2].map(k=>inp("r"+(bi+1),k)).join("")}`;
-  h+=`</div></div>`});
- $("app").innerHTML=h;calc();
-}
-function mkg(x){const m=x.m.map(v=>(parseFloat(v)||0)/100);return(w,k,st)=>{if(!st)return 0;const b=+(st==1?w[1]:w[2])||0;return w[0]=="レ"?Math.floor(b*(1+m[k])+1e-9):b}}
-function chain(x,st,g){let base=x.s.map(v=>+v||0),P=[];
- RG.forEach(([a,b],bi)=>{const p=[0,1,2].map(k=>{let t=base[k];for(let i=a;i<b;i++)t+=g(x.w[i],k,st(i,k));return t});P.push(p);
-  if(bi<2){const r=bi?x.r2:x.r1;base=[0,1,2].map(k=>r[k]!==""?+r[k]||0:p[k])}});
- return P}
-const freeRow=w=>!w[3]&&!w[4]&&!w[5];
-const bk=i=>i<5?0:i<9?1:2;
-function suggest(x,g){
- const asg={},pl={},rs={},st=(i,k)=>{const w=x.w[i];return freeRow(w)?(asg[i]===k?1:0):w[3+k]};
- const cl=i=>{const w=x.w[i];return bk(i)+w[0]+w[1]+"_"+w[2]};
- const key=rows=>{const c={};rows.forEach(i=>{(c[cl(i)]=c[cl(i)]||[]).push(asg[i])});return Object.keys(c).sort().map(k=>k+":"+c[k].sort().join("")).join("|")};
- const pass=(rows,au)=>{const T=[0,1,2].map(k=>tgv(x,au,k));if(!rows.length||T.every(v=>v==null))return false;
-  let bs=1e9;const M=new Map(),tot=Math.pow(3,rows.length);
-  for(let c=0;c<tot;c++){let z=c;rows.forEach(i=>{asg[i]=z%3;z=(z-z%3)/3});
-   const P=chain(x,st,g)[au];let sh=0,mg=1e9;
-   T.forEach((t,k)=>{if(t!=null){sh+=Math.max(0,t-P[k]);mg=Math.min(mg,P[k]-t)}});
-   if(sh>bs)continue;if(sh<bs){bs=sh;M.clear()}
-   const kk=key(rows),o=M.get(kk);if(!o||mg>o.mg)M.set(kk,{mg,a:rows.map(i=>asg[i])})}
-  const L=[...M.values()].sort((a,b)=>b.mg-a.mg).slice(0,3).map(o=>({a:o.a,rows}));
-  rows.forEach((i,j)=>asg[i]=L[0].a[j]);pl[au]=L;
-  const U={};L.forEach(p=>rows.forEach((i,j)=>{(U[cl(i)]=U[cl(i)]||new Set()).add(p.a[j])}));
-  rows.forEach(i=>rs[i]=U[cl(i)]);return true};
- const fr=(a,b)=>{const o=[];for(let i=a;i<b;i++)if(freeRow(x.w[i]))o.push(i);return o};
- const r1ok=x.r1.every(v=>v!==""),ran0=r1ok?false:pass(fr(0,5),0);
- pass([...(r1ok||ran0?[]:fr(0,5)),...fr(5,9)],1);
- pass(fr(9,14),2);
- return{asg,st,pl,rs}}
-let SG=null,tm;
-function calc(full=true){
- const x=d(),g=mkg(x),S=(full||!SG)?(SG=suggest(x,g)):SG;
- const P=chain(x,(i,k)=>x.w[i][3+k],g),Q=chain(x,S.st,g);
- x.w.forEach((w,i)=>{$("w"+i).classList.toggle("ey",w[0]=="営");
-  [0,1,2].forEach(k=>{const c=$("c"+i+"_"+k),sg=freeRow(w)&&!!S.rs[i]&&S.rs[i].has(k);
-   c.className="ce k"+k+" s"+w[3+k]+(sg?" sg":"");
-   c.querySelector(".lv").textContent=sg?"提案":["–","成功","大成功"][w[3+k]];
-   $("g"+i+"_"+k).textContent=w[3+k]?"+"+g(w,k,w[3+k]):sg?"+"+g(w,k,1):""})});
- RG.forEach((_,bi)=>{[0,1,2].forEach(k=>{$("p"+bi+"_"+k).textContent=P[bi][k];
-  {const tg=tgv(x,bi,k);
-   [["d",P],["q",Q]].forEach(([id,PP])=>{const e=$(id+bi+"_"+k);
-    if(tg==null){e.textContent="–";e.className="n"}else{const df=PP[bi][k]-tg;e.textContent=(df>0?"+":"")+df;e.className="n "+(df>=0?"ok":"ng")}})}
-  if(bi<2)document.querySelector(`[data-f="r${bi+1}"][data-k="${k}"]`).placeholder=P[bi][k]})});
-}
-$("app").onchange=e=>{const t=e.target;if(t.dataset.ex==null)return;applyEx(d(),+t.dataset.ex,t.value);save();render()};
-$("app").oninput=e=>{const t=e.target;if(t.dataset.ex!=null)return;
- if(t.dataset.f=="t0"||t.dataset.f=="t"){const bi=t.dataset.f=="t0"?0:1+Math.floor(+t.dataset.k/3);d().ex[bi]="";const sl=document.querySelector(`[data-ex="${bi}"]`);if(sl)sl.value=""}
- if(t.dataset.f)d()[t.dataset.f][+t.dataset.k]=t.value;else if(t.dataset.w)d().w[+t.dataset.w][+t.dataset.j]=t.value;else return;
- save();calc(false);clearTimeout(tm);tm=setTimeout(()=>calc(true),250)};
-$("app").onclick=e=>{const b=e.target.closest("button");if(!b)return;const x=d();
- const i=+b.dataset.i;if(isNaN(i))return;const w=x.w[i];
- if(b.classList.contains("ty")){w[0]=w[0]=="レ"?"営":"レ";b.textContent=w[0];if(w[0]=="営")[3,4,5].forEach(j=>{if(w[j]>1)w[j]=1})}
- else{const k=+b.dataset.k,mx=w[0]=="レ"?2:1,nv=(w[3+k]+1)%(mx+1);[3,4,5].forEach(j=>w[j]=0);w[3+k]=nv}
- save();calc()};
-$("id").innerHTML=SEED.map(s=>`<option>${s.n}</option>`).join("");
-$("id").value=cur;
-let rsT;
-const rsOff=()=>{clearTimeout(rsT);$("rs").classList.remove("ask");$("rs").textContent="↺ リセット"};
-const setOpen=v=>{$("fab").classList.toggle("open",v);$("tg").setAttribute("aria-expanded",v);if(!v)rsOff()};
-$("tg").onclick=()=>setOpen(!$("fab").classList.contains("open"));
-document.addEventListener("click",e=>{if(!$("fab").contains(e.target))setOpen(false)});
-$("rs").onclick=()=>{const b=$("rs");if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent="もう一度タップで戻す";clearTimeout(rsT);rsT=setTimeout(rsOff,2500);return}
- rsOff();const x=d(),t=x.t,t0=x.t0,ex=x.ex;delete D[cur];const o=d();o.t=t;o.t0=t0;o.ex=ex;o.exv=1;o.m=["","",""];save();render();setOpen(false)};
-$("id").onchange=e=>{cur=e.target.value;save();paint();render();setOpen(false)};
-paint();render();
-</script>
+<main>
+<h1>学マスツール</h1>
+<a class="tool" href="ikusei.html" style="--ac:var(--vo)"><div class="tx"><b>育成シミュ</b><span>週ごとの行動から最終ステータスを予測し、目標に届く選び方を提案します</span></div><svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true"><path d="m2 2 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+<a class="tool" href="score-memo.html" style="--ac:var(--da)"><div class="tx"><b>スコアメモ</b><span>シーズンごとのスコアを記録し、平均と順位を自動で計算します</span></div><svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true"><path d="m2 2 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+</main>
+<footer>本サイトは非公式のファンメイドツールです。<br>「学園アイドルマスター」の公式とは一切関係ありません。</footer>
 </body></html>
