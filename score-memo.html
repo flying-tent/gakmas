@@ -11,7 +11,7 @@
 :root[data-theme="dark"]{--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding-bottom:40px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding-bottom:96px}
 body[data-st="ロジック"]{--acc:#3a7bd5}
 body[data-st="アノマリー"]{--acc:#d99a00;--on:#1f1700}
 header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:10px 12px 0;z-index:2}
@@ -19,8 +19,8 @@ header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);pad
 select,input,button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
 select{flex:1}#nn,#na{flex:1}
 button{cursor:pointer}
-.tabs{display:flex;border-bottom:3px solid var(--acc)}
-.tabs button{flex:1;border:0;border-radius:10px 10px 0 0;background:transparent;color:var(--mute);padding:11px 4px;font-weight:700}
+.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:560px;display:flex;background:var(--bg);border-top:3px solid var(--acc);padding-bottom:env(safe-area-inset-bottom,0px);z-index:3}
+.tabs button{flex:1;border:0;border-radius:0 0 10px 10px;background:transparent;color:var(--mute);padding:11px 4px;font-weight:700}
 .tabs button.on{background:var(--acc);color:var(--on)}
 main{padding:12px}
 .card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:12px;padding:10px;margin-bottom:10px}
@@ -51,7 +51,6 @@ main{padding:12px}
 <body>
 <header>
  <div class="kk"><span>キャラ数</span><button data-k="2">2</button><button data-k="3">3</button><span id="kh"></span></div>
- <div class="tabs" id="tb"></div>
 </header>
 <main>
  <div id="ls"></div>
@@ -60,6 +59,7 @@ main{padding:12px}
  <textarea id="cp" readonly></textarea>
  <p class="hint" id="ms">データはこの端末のブラウザに保存されます。</p>
 </main>
+<div class="tabs" id="tb"></div>
 <script>
 const ST={"センス":["ことねセ","莉波","麻央","手毬","咲季セ","千奈セ","清夏","リーリヤ"],"ロジック":["ことね好","佑芽","広","咲季好","千奈","リーリヤ","星南"],"アノマリー":["星南","広","麻央","雨ことね","清夏","佑芽","Gことね"]};
 const KEY="gakumas-score-memo-v1",N=5,$=id=>document.getElementById(id);
