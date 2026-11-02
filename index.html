@@ -2,13 +2,15 @@
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>学マス育成シミュ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f5f3f0;--card:#fff;--ink:#23212b;--mute:#79768a;--line:#e3dfe9;--vo:#e8456b;--da:#3a7bd5;--vi:#d99a00;--ok:#16895a;--ng:#d6455d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648;--ok:#4cc790;--ng:#ff7088}}
 :root[data-theme="dark"]{--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648;--ok:#4cc790;--ng:#ff7088}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding-bottom:40px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding-bottom:40px}
 header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:10px 12px;z-index:2;display:flex;align-items:center;gap:10px}
 .dot{width:30px;height:30px;border-radius:50%;flex:none;background:var(--ic,var(--line));border:1px solid var(--line)}
 select,input,button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 8px;min-width:0}
