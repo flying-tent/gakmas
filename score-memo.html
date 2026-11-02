@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>学マス スコアメモ</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#f5f3f0;--card:#fff;--ink:#23212b;--mute:#79768a;--line:#e3dfe9;--acc:#e8456b;--on:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648}}
+:root[data-theme="dark"]{--bg:#16151c;--card:#232230;--ink:#f1eff6;--mute:#9a97a6;--line:#383648}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Hiragino Sans","Noto Sans JP",system-ui,sans-serif;max-width:560px;margin-inline:auto;padding-bottom:40px}
+body[data-st="ロジック"]{--acc:#3a7bd5}
+body[data-st="アノマリー"]{--acc:#d99a00;--on:#1f1700}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:10px 12px 0;z-index:2}
+.row{display:flex;gap:8px;margin-bottom:8px}
+select,input,button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
+select{flex:1}#nn,#na{flex:1}
+button{cursor:pointer}
+.tabs{display:flex;border-bottom:3px solid var(--acc)}
+.tabs button{flex:1;border:0;border-radius:10px 10px 0 0;background:transparent;color:var(--mute);padding:11px 4px;font-weight:700}
+.tabs button.on{background:var(--acc);color:var(--on)}
+main{padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:12px;padding:10px;margin-bottom:10px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.nm{flex:1;font-weight:700;font-size:17px}
+.avg{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.rk{min-width:34px;text-align:center;border-radius:8px;padding:2px 6px;font-weight:800;background:var(--line);color:var(--mute)}
+.rk.t1{background:var(--acc);color:var(--on)}
+.rk.t2{background:color-mix(in srgb,var(--acc) 45%,var(--card));color:var(--ink)}
+.rk.t3{background:color-mix(in srgb,var(--acc) 22%,var(--card));color:var(--ink)}
+.card.t1,.card.t2,.card.t3{background:color-mix(in srgb,var(--acc) 12%,var(--card))}
+.kk{display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--mute);font-size:14px}
+.kk button{padding:7px 18px;font-weight:700}
+.kk button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.del{border:0;background:none;color:var(--mute);padding:4px 6px}
+.del.ask{color:#d33;font-weight:700}
+.sc{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.sc input{width:100%;text-align:center;padding:10px 2px;font-size:16px;font-variant-numeric:tabular-nums}
+.sc input:focus{outline:2px solid var(--acc);border-color:var(--acc)}
+.tools{display:flex;gap:8px;margin-top:4px}
+.tools button{flex:1}
+#cp{width:100%;height:120px;margin-top:8px;display:none}
+.hint{color:var(--mute);font-size:13px;margin:8px 2px}
+</style></head>
+<body>
+<header>
+ <div class="row"><select id="ss" aria-label="シーズン"></select></div>
+ <div class="row"><input id="nn" placeholder="新しいシーズン名(空なら今日の日付)"><button id="nw">新規</button></div>
+ <div class="kk"><span>キャラ数</span><button data-k="2">2</button><button data-k="3">3</button><span id="kh"></span></div>
+ <div class="tabs" id="tb"></div>
+</header>
+<main>
+ <div id="ls"></div>
+ <div class="row"><input id="na" placeholder="アイドル名を追加"><button id="ad">追加</button></div>
+ <div class="tools"><button id="cb">この表をコピー(Excel用)</button></div>
+ <textarea id="cp" readonly></textarea>
+ <p class="hint" id="ms">データはこの端末のブラウザに保存されます。</p>
+</main>
+<script>
+const ST={"センス":["ことねセ","莉波","麻央","手毬","咲季セ","千奈セ","清夏","リーリヤ"],"ロジック":["ことね好","佑芽","広","咲季好","千奈","リーリヤ","星南"],"アノマリー":["星南","広","麻央","雨ことね","清夏","佑芽","Gことね"]};
+const KEY="gakumas-score-memo-v1",N=5,$=id=>document.getElementById(id);
+let S=null;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+function today(){const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")}
+if(!S||!S.seasons||!S.seasons.length)S={cur:0,st:"センス",seasons:[{name:today(),s:{}}],idols:JSON.parse(JSON.stringify(ST))};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const cur=()=>S.seasons[S.cur];
+const kn=()=>cur().k||3;
+const row=(st,n)=>{const s=cur().s;return s[st+"|"+n]||(s[st+"|"+n]=Array(N).fill(""))};
+const avgOf=a=>{const v=a.map(x=>parseInt(x,10)).filter(x=>!isNaN(x));return v.length?v.reduce((p,c)=>p+c,0)/v.length:null};
+function head(){
+ $("ss").innerHTML=S.seasons.map((x,i)=>`<option value="${i}">${x.name.replace(/[<&]/g,"")}</option>`).join("");
+ $("ss").value=S.cur;
+ $("tb").innerHTML=Object.keys(ST).map(k=>`<button data-k="${k}" class="${k==S.st?"on":""}">${k}</button>`).join("");
+ document.body.dataset.st=S.st;
+ $("kh").textContent="上位"+kn()+"位まで色付け";
+ document.querySelectorAll(".kk button").forEach(b=>b.classList.toggle("on",+b.dataset.k==kn()));
+}
+function list(){
+ $("ls").innerHTML="";
+ S.idols[S.st].forEach(n=>{
+  const r=row(S.st,n),c=document.createElement("div");c.className="card";c.dataset.n=n;
+  c.innerHTML=`<div class="top"><span class="nm"></span><span class="avg">–</span><span class="rk">–</span><button class="del" aria-label="削除">✕</button></div><div class="sc"></div>`;
+  c.querySelector(".nm").textContent=n;
+  const g=c.querySelector(".sc");
+  r.forEach((v,i)=>{const e=document.createElement("input");e.inputMode="numeric";e.pattern="[0-9]*";e.placeholder=i+1;e.value=v;e.setAttribute("aria-label",n+" "+(i+1)+"回目");
+   e.oninput=()=>{e.value=e.value.replace(/\D/g,"");r[i]=e.value;save();stats()};g.appendChild(e)});
+  const d=c.querySelector(".del");
+  d.onclick=()=>{if(!d.classList.contains("ask")){d.classList.add("ask");d.textContent="削除?";setTimeout(()=>{d.classList.remove("ask");d.textContent="✕"},2500);return}
+   S.idols[S.st]=S.idols[S.st].filter(x=>x!=n);save();list()};
+  $("ls").appendChild(c)});
+ stats();
+}
+function stats(){
+ const cs=[...$("ls").children],av=cs.map(c=>avgOf(row(S.st,c.dataset.n)));
+ const sorted=av.filter(a=>a!==null).sort((a,b)=>b-a);
+ cs.forEach((c,i)=>{const a=av[i],rk=c.querySelector(".rk");
+  c.querySelector(".avg").textContent=a===null?"–":a.toFixed(1);
+  const p=a===null?0:sorted.indexOf(a)+1;rk.textContent=p?p+"位":"–";const t=p&&p<=kn()?"t"+p:"";rk.className="rk "+t;c.className="card "+t});
+}
+function say(t){$("ms").textContent=t}
+document.querySelector(".kk").onclick=e=>{const k=+e.target.dataset.k;if(k){cur().k=k;save();head();stats()}};
+$("ss").onchange=e=>{S.cur=+e.target.value;save();head();list()};
+$("tb").onclick=e=>{const k=e.target.dataset.k;if(k){S.st=k;save();head();list()}};
+$("nw").onclick=()=>{let n=$("nn").value.trim()||today();if(S.seasons.some(x=>x.name==n))n+="-2";
+ S.seasons.unshift({name:n,s:{},k:kn()});S.cur=0;$("nn").value="";save();head();list()};
+$("ad").onclick=()=>{const n=$("na").value.trim();if(!n||S.idols[S.st].includes(n))return;S.idols[S.st].push(n);$("na").value="";save();list()};
+$("cb").onclick=async()=>{
+ const t=["アイドル",...Array.from({length:N},(_,i)=>i+1),"平均","順位"].join("\t")+"\n"+
+ [...$("ls").children].map(c=>{const n=c.dataset.n,r=row(S.st,n),a=avgOf(r);return [n,...r,a===null?"":a.toFixed(1),c.querySelector(".rk").textContent.replace("–","")].join("\t")}).join("\n");
+ try{await navigator.clipboard.writeText(t);say("コピーしました。Excelに貼り付けてください。")}
+ catch(e){const x=$("cp");x.style.display="block";x.value=t;x.focus();x.select();say("下の文章を長押ししてコピーしてください。")}
+};
+head();list();
+</script>
+</body></html>
