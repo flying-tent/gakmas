@@ -133,7 +133,7 @@ $("app").oninput=e=>{const t=e.target;
 $("app").onclick=e=>{const b=e.target.closest("button");if(!b)return;const x=d();
  if(b.id=="ap"){const S=suggest(x,mkg(x));x.w.forEach((w,i)=>{if(freeRow(w)&&S.asg[i]!=null)w[3+S.asg[i]]=1});save();calc();return}
  if(b.id=="rs"){if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent="本当に戻す？もう一度タップ";setTimeout(()=>{if(b.isConnected){b.classList.remove("ask");b.textContent=cur+"のデータを初期値に戻す（目標は残す）"}},2500);return}
-  const t=x.t,t0=x.t0;delete D[cur];const o=d();o.t=t;o.t0=t0;save();render();return}
+  const t=x.t,t0=x.t0;delete D[cur];const o=d();o.t=t;o.t0=t0;o.m=["","",""];save();render();return}
  const i=+b.dataset.i;if(isNaN(i))return;const w=x.w[i];
  if(b.classList.contains("ty")){w[0]=w[0]=="レ"?"営":"レ";b.textContent=w[0];if(w[0]=="営")[3,4,5].forEach(j=>{if(w[j]>1)w[j]=1})}
  else{const k=+b.dataset.k,mx=w[0]=="レ"?2:1,nv=(w[3+k]+1)%(mx+1);[3,4,5].forEach(j=>w[j]=0);w[3+k]=nv}
