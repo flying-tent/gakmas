@@ -50,8 +50,6 @@ main{padding:12px}
 </style></head>
 <body>
 <header>
- <div class="row"><select id="ss" aria-label="シーズン"></select></div>
- <div class="row"><input id="nn" placeholder="新しいシーズン名(空なら今日の日付)"><button id="nw">新規</button></div>
  <div class="kk"><span>キャラ数</span><button data-k="2">2</button><button data-k="3">3</button><span id="kh"></span></div>
  <div class="tabs" id="tb"></div>
 </header>
@@ -70,14 +68,21 @@ try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 function today(){const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")}
 if(!S||!S.seasons||!S.seasons.length)S={cur:0,st:"センス",seasons:[{name:today(),s:{}}],idols:JSON.parse(JSON.stringify(ST))};
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+if(S.seasons.length>1){
+ const mg={name:"all",s:{},m:{}};
+ S.seasons.forEach(sn=>{
+  const s=sn.s||{};Object.keys(s).forEach(k=>{const src=Array.isArray(s[k])?s[k]:[],dst=mg.s[k]||(mg.s[k]=Array(N).fill(""));src.forEach((v,i)=>{if(i<N&&dst[i]===""&&v!=="")dst[i]=v})});
+  const m=sn.m||{};Object.keys(m).forEach(k=>{const src=Array.isArray(m[k])?m[k]:[m[k]||"",""],dst=mg.m[k]||(mg.m[k]=["",""]);src.forEach((v,i)=>{if(i<2&&dst[i]===""&&v!=="")dst[i]=v})});
+ });
+ mg.k=(S.seasons[S.cur]&&S.seasons[S.cur].k)||(S.seasons.find(x=>x.k)||{}).k||3;
+ S.seasons=[mg];S.cur=0;save();
+}
 const cur=()=>S.seasons[S.cur];
 const kn=()=>cur().k||3;
 const row=(st,n)=>{const s=cur().s;return s[st+"|"+n]||(s[st+"|"+n]=Array(N).fill(""))};
 const pm=k=>{const m=cur().m||(cur().m={}),v=m[k];return Array.isArray(v)?v:(m[k]=[v||"",""])};
 const avgOf=a=>{const v=a.map(x=>parseInt(x,10)).filter(x=>!isNaN(x));return v.length?v.reduce((p,c)=>p+c,0)/v.length:null};
 function head(){
- $("ss").innerHTML=S.seasons.map((x,i)=>`<option value="${i}">${x.name.replace(/[<&]/g,"")}</option>`).join("");
- $("ss").value=S.cur;
  $("tb").innerHTML=Object.keys(ST).map(k=>`<button data-k="${k}" class="${k==S.st?"on":""}">${k}</button>`).join("");
  document.body.dataset.st=S.st;
  $("kh").textContent="上位"+kn()+"位まで色付け";
@@ -110,10 +115,7 @@ function stats(){
 }
 function say(t){$("ms").textContent=t}
 document.querySelector(".kk").onclick=e=>{const k=+e.target.dataset.k;if(k){cur().k=k;save();head();stats()}};
-$("ss").onchange=e=>{S.cur=+e.target.value;save();head();list()};
 $("tb").onclick=e=>{const k=e.target.dataset.k;if(k){S.st=k;save();head();list()}};
-$("nw").onclick=()=>{let n=$("nn").value.trim()||today();if(S.seasons.some(x=>x.name==n))n+="-2";
- S.seasons.unshift({name:n,s:{},k:kn()});S.cur=0;$("nn").value="";save();head();list()};
 $("ad").onclick=()=>{const n=$("na").value.trim();if(!n||S.idols[S.st].includes(n))return;S.idols[S.st].push(n);$("na").value="";save();list()};
 $("cb").onclick=async()=>{
  const t=["アイドル",...Array.from({length:N},(_,i)=>i+1),"平均","順位","パラメータ1","パラメータ2"].join("\t")+"\n"+
