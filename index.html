@@ -86,7 +86,8 @@ let D={},cur=SEED[0].n;
 try{const x=JSON.parse(localStorage.getItem(KEY));if(x){D=x.D||{};if(x.cur)cur=x.cur;if(x.pv!=2)Object.values(D).forEach(o=>{o.m=o.m.map(v=>v===""?"":String(+(parseFloat(v)*100).toFixed(3)))})}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({D,cur,pv:2}))}catch(e){}}
 function fresh(n){const s=SEED.find(x=>x.n==n);return{s:s.s.map(sv),m:s.m.map(v=>v==null?"":String(+(v*100).toFixed(3))),t:s.t.map(sv),t0:["","",""],r1:["","",""],r2:["","",""],w:T0.map(r=>[...r,0,0,0])}}
-const d=()=>{const o=D[cur]||(D[cur]=fresh(cur));if(!o.t0)o.t0=["","",""];if(!o.ex)o.ex=["","",""];return o};
+const d=()=>{const o=D[cur]||(D[cur]=fresh(cur));if(!o.t0)o.t0=["","",""];if(!o.ex)o.ex=["","",""];if(!o.exv){o.exv=1;if(JT[cur])[0,1,2].forEach(bi=>applyEx(o,bi,EXAM[bi][0]))}return o};
+function applyEx(x,bi,e){x.ex[bi]=e;const v=e&&okv(cur,e);if(v)v.r.forEach((val,k)=>{if(bi)x.t[(bi-1)*3+k]=val;else x.t0[k]=val})}
 const tgv=(x,bi,k)=>nn(bi?x.t[(bi-1)*3+k]:x.t0[k]);
 const nn=v=>{const x=parseInt(String(v).replace(/\D/g,""),10);return isNaN(x)?null:x};
 const th=()=>NA.map((n,k)=>`<b class="${CL[k]}">${n}</b>`).join("");
@@ -151,9 +152,7 @@ function calc(full=true){
     if(tg==null){e.textContent="–";e.className="n"}else{const df=PP[bi][k]-tg;e.textContent=(df>0?"+":"")+df;e.className="n "+(df>=0?"ok":"ng")}})}
   if(bi<2)document.querySelector(`[data-f="r${bi+1}"][data-k="${k}"]`).placeholder=P[bi][k]})});
 }
-$("app").onchange=e=>{const t=e.target;if(t.dataset.ex==null)return;const x=d(),bi=+t.dataset.ex,e2=t.value;x.ex[bi]=e2;
- if(e2){const v=okv(cur,e2);if(v)v.r.forEach((val,k)=>{if(bi)x.t[(bi-1)*3+k]=val;else x.t0[k]=val})}
- save();render()};
+$("app").onchange=e=>{const t=e.target;if(t.dataset.ex==null)return;applyEx(d(),+t.dataset.ex,t.value);save();render()};
 $("app").oninput=e=>{const t=e.target;if(t.dataset.ex!=null)return;
  if(t.dataset.f=="t0"||t.dataset.f=="t"){const bi=t.dataset.f=="t0"?0:1+Math.floor(+t.dataset.k/3);d().ex[bi]="";const sl=document.querySelector(`[data-ex="${bi}"]`);if(sl)sl.value=""}
  if(t.dataset.f)d()[t.dataset.f][+t.dataset.k]=t.value;else if(t.dataset.w)d().w[+t.dataset.w][+t.dataset.j]=t.value;else return;
@@ -171,7 +170,7 @@ const setOpen=v=>{$("fab").classList.toggle("open",v);$("tg").setAttribute("aria
 $("tg").onclick=()=>setOpen(!$("fab").classList.contains("open"));
 document.addEventListener("click",e=>{if(!$("fab").contains(e.target))setOpen(false)});
 $("rs").onclick=()=>{const b=$("rs");if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent="もう一度タップで戻す";clearTimeout(rsT);rsT=setTimeout(rsOff,2500);return}
- rsOff();const x=d(),t=x.t,t0=x.t0,ex=x.ex;delete D[cur];const o=d();o.t=t;o.t0=t0;o.ex=ex;o.m=["","",""];save();render();setOpen(false)};
+ rsOff();const x=d(),t=x.t,t0=x.t0,ex=x.ex;delete D[cur];const o=d();o.t=t;o.t0=t0;o.ex=ex;o.exv=1;o.m=["","",""];save();render();setOpen(false)};
 $("id").onchange=e=>{cur=e.target.value;save();paint();render();setOpen(false)};
 paint();render();
 </script>
