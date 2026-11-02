@@ -85,9 +85,9 @@ function list(){
  $("ls").innerHTML="";
  S.idols[S.st].forEach(n=>{
   const r=row(S.st,n),c=document.createElement("div");c.className="card";c.dataset.n=n;
-  c.innerHTML=`<div class="top"><span class="nm"></span><span class="avg">–</span><span class="rk">–</span><button class="del" aria-label="削除">✕</button></div><label class="mm">メモリーの強さ<input class="mi" inputmode="numeric" pattern="[0-9]*" maxlength="5"></label><div class="sc"></div>`;
+  c.innerHTML=`<div class="top"><span class="nm"></span><span class="avg">–</span><span class="rk">–</span><button class="del" aria-label="削除">✕</button></div><label class="mm">パラメータ<input class="mi" inputmode="numeric" pattern="[0-9]*" maxlength="5"></label><div class="sc"></div>`;
   c.querySelector(".nm").textContent=n;
-  const mi=c.querySelector(".mi");mi.value=mems()[S.st+"|"+n]||"";mi.setAttribute("aria-label",n+" メモリーの強さ");
+  const mi=c.querySelector(".mi");mi.value=mems()[S.st+"|"+n]||"";mi.setAttribute("aria-label",n+" パラメータ");
   mi.oninput=()=>{mi.value=mi.value.replace(/\D/g,"").slice(0,5);mems()[S.st+"|"+n]=mi.value;save()};
   const g=c.querySelector(".sc");
   r.forEach((v,i)=>{const e=document.createElement("input");e.inputMode="numeric";e.pattern="[0-9]*";e.placeholder=i+1;e.value=v;e.setAttribute("aria-label",n+" "+(i+1)+"回目");
@@ -113,7 +113,7 @@ $("nw").onclick=()=>{let n=$("nn").value.trim()||today();if(S.seasons.some(x=>x.
  S.seasons.unshift({name:n,s:{},k:kn()});S.cur=0;$("nn").value="";save();head();list()};
 $("ad").onclick=()=>{const n=$("na").value.trim();if(!n||S.idols[S.st].includes(n))return;S.idols[S.st].push(n);$("na").value="";save();list()};
 $("cb").onclick=async()=>{
- const t=["アイドル",...Array.from({length:N},(_,i)=>i+1),"平均","順位","メモリーの強さ"].join("\t")+"\n"+
+ const t=["アイドル",...Array.from({length:N},(_,i)=>i+1),"平均","順位","パラメータ"].join("\t")+"\n"+
  [...$("ls").children].map(c=>{const n=c.dataset.n,r=row(S.st,n),a=avgOf(r);return [n,...r,a===null?"":a.toFixed(1),c.querySelector(".rk").textContent.replace("–",""),mems()[S.st+"|"+n]||""].join("\t")}).join("\n");
  try{await navigator.clipboard.writeText(t);say("コピーしました。Excelに貼り付けてください。")}
  catch(e){const x=$("cp");x.style.display="block";x.value=t;x.focus();x.select();say("下の文章を長押ししてコピーしてください。")}
