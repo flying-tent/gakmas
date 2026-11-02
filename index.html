@@ -50,7 +50,6 @@ h2{margin:0 0 8px;font-size:16px}
 .ce.sg.k1{border-color:color-mix(in srgb,var(--da) 50%,var(--card));background:color-mix(in srgb,var(--da) 6%,var(--card))}
 .ce.sg.k2{border-color:color-mix(in srgb,var(--vi) 55%,var(--card));background:color-mix(in srgb,var(--vi) 7%,var(--card))}
 .ce.sg em{opacity:.5}
-.jd{grid-column:2/-1;text-align:center;font-weight:800}
 .ex{grid-column:2/-1;width:100%}
 .exn{grid-column:2/-1;font-size:12px;color:var(--mute);margin-top:-2px}
 .rs.ask{color:var(--ng);font-weight:700}
@@ -104,7 +103,7 @@ function render(){
   for(let i=a;i<b;i++)h+=rowH(i);
   h+=`<div class="sm g4"><i></i>${th()}<i>予測</i>${ids("p",bi)}`;
   h+=`<i>試験</i><select class="ex" data-ex="${bi}"><option value="">手入力</option>${JT[cur]?EXAM[bi].map(e=>`<option${x.ex[bi]==e?" selected":""} value="${e}">${e}</option>`).join(""):""}</select>${JT[cur]?"":`<span class="exn">${cur}は審査基準が未判明なので手入力のみ</span>`}`;
-  h+=`<i>目標</i>${[0,1,2].map(k=>bi?inp("t",(bi-1)*3+k,"text"):inp("t0",k,"text")).join("")}<i>差分</i>${ids("d",bi)}<i>提案後</i>${ids("q",bi)}<i>判定</i><span class="jd" id="j${bi}"></span>`;
+  h+=`<i>目標</i>${[0,1,2].map(k=>bi?inp("t",(bi-1)*3+k,"text"):inp("t0",k,"text")).join("")}<i>差分</i>${ids("d",bi)}<i>提案後</i>${ids("q",bi)}`;
   if(bi<2)h+=`<i>結果</i>${[0,1,2].map(k=>inp("r"+(bi+1),k)).join("")}`;
   h+=`</div></div>`});
  $("app").innerHTML=h;calc();
@@ -145,7 +144,6 @@ function calc(full=true){
    c.className="ce k"+k+" s"+w[3+k]+(sg?" sg":"");
    c.querySelector(".lv").textContent=sg?"提案":["–","成功","大成功"][w[3+k]];
    $("g"+i+"_"+k).textContent=w[3+k]?"+"+g(w,k,w[3+k]):sg?"+"+g(w,k,1):""})});
- RG.forEach((_,bi)=>{const T=[0,1,2].map(k=>tgv(x,bi,k)),any=T.some(v=>v!=null),v=PP=>!any?"–":T.every((t,k)=>t==null||PP[bi][k]>=t)?'<span class="ok">○</span>':'<span class="ng">×</span>';$("j"+bi).innerHTML="現在 "+v(P)+" ／ 提案後 "+v(Q)});
  RG.forEach((_,bi)=>{[0,1,2].forEach(k=>{$("p"+bi+"_"+k).textContent=P[bi][k];
   {const tg=tgv(x,bi,k);
    [["d",P],["q",Q]].forEach(([id,PP])=>{const e=$(id+bi+"_"+k);
