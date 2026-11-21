@@ -550,6 +550,7 @@ function openDetail(idol) {
   const maxViews = Math.max(1, ...solo.map((v) => v.views), ...group.map((v) => v.views));
 
   $("detailName").textContent = idol.name;
+  $("detail").style.borderColor = idol.color;
   if (solo.length) countUp($("detailTotal"), total); else $("detailTotal").textContent = "-";
   diffEl($("detailDiff"), solo.length ? sumDiff(solo) : null);
 
