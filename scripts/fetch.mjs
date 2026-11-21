@@ -5,6 +5,8 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 const API_KEY = process.env.YT_API_KEY;
 const UPLOADS_PLAYLIST_ID = "UU2dXx-3RXeeP8hA5AGt8vuw"; // 初星学園チャンネルのアップロード一覧
 const TITLE_FILTER = /Official Music Video/i;
+// ハッシュタグ付きのタイトルはショート動画(縦型の切り抜き)なので除外する
+const SHORTS_TITLE = /#/;
 const DATA_FILE = new URL("../data/data.json", import.meta.url);
 const KEEP_DAYS = 400; // 記録を残す日数
 
@@ -24,8 +26,8 @@ async function api(path, params) {
 
 function extractSingerLine(desc) {
   for (const line of (desc || "").split(/\r?\n/)) {
-    const m = line.match(/歌\s*[::]\s*(.+)$/);
-    if (m) return m[1].replace(/\s*作詞.*$/, "").trim();
+    const m = line.match(/歌\s*[:\uFF1A]\s*(.+)$/);
+    if (m) return m[1].replace(/\s*(作詞|作曲|編曲).*$/, "").trim();
   }
   return "";
 }
@@ -40,7 +42,7 @@ do {
   });
   for (const it of data.items || []) {
     const sn = it.snippet || {};
-    if (!TITLE_FILTER.test(sn.title || "")) continue;
+    if (!TITLE_FILTER.test(sn.title || "") || SHORTS_TITLE.test(sn.title || "")) continue;
     videos.push({
       id: it.contentDetails?.videoId || sn.resourceId?.videoId,
       rawTitle: sn.title,
@@ -58,7 +60,19 @@ for (let i = 0; i < videos.length; i += 50) {
   const data = await api("videos", { part: "statistics", id: ids, maxResults: 50 });
   for (const v of data.items || []) views[v.id] = Number(v.statistics?.viewCount || 0);
 }
-const listed = videos.filter((v) => v.id in views);
+// ショート動画かどうかを /shorts/ のURLで確かめる(ショートでなければ通常の再生ページへ転送される)
+async function isShort(id) {
+  try {
+    const res = await fetch(`https://www.youtube.com/shorts/${id}`, { method: "HEAD", redirect: "manual" });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+const candidates = videos.filter((v) => v.id in views);
+const shortFlags = await Promise.all(candidates.map((v) => isShort(v.id)));
+const listed = candidates.filter((_, i) => !shortFlags.at(i));
+console.log(`ショート動画として ${candidates.length - listed.length}本を除外しました`);
 if (!listed.length) throw new Error("楽曲MVが1本も取得できませんでした");
 
 // 3. 記録に追加(同じ日付の記録は上書き)
