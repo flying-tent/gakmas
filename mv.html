@@ -138,6 +138,10 @@
   .d-total { grid-column: 2; grid-row: 1; text-align: right; font-size: 18px; font-weight: 700; line-height: 1.4; font-variant-numeric: tabular-nums; }
   .d-diff { grid-column: 2; grid-row: 2; text-align: right; }
   .d-close { grid-column: 3; grid-row: 1 / span 2; }
+  .d-close { -webkit-tap-highlight-color: transparent; }
+  .d-close:focus { outline: none; }
+  .d-close:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+  dialog#detail:focus { outline: none; }
   .d-close { width: 36px; height: 36px; border-radius: 50%; font-size: 20px; line-height: 1; padding: 0; }
   .d-body { overflow-y: auto; padding: 8px 12px 16px; }
   .d-section { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin: 12px 4px 6px; }
@@ -208,7 +212,7 @@
   </main>
   <footer class="note foot">本ツールは非公式のファンメイドツールです。<br>「学園アイドルマスター」の公式とは一切関係ありません。</footer>
 </div>
-<dialog id="detail" aria-labelledby="detailName">
+<dialog id="detail" aria-labelledby="detailName" tabindex="-1">
   <div class="d-head">
     <div class="d-name" id="detailName"></div>
     <div class="d-total" id="detailTotal"></div>
@@ -572,6 +576,8 @@ function openDetail(idol) {
 
   const dlg = $("detail");
   if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  // 開いた直後に閉じるボタンへフォーカスが当たり、モバイルで青い枠が出るのを防ぐ
+  dlg.focus({ preventScroll: true });
   body.scrollTop = 0;
 }
 
