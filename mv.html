@@ -130,7 +130,7 @@
   .tabs button:focus { outline: none; }
   .tabs button:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 1px; }
   .today-note { text-align: center; color: var(--text-muted); font-size: 14px; padding: 24px 0; }
-  .rank { display: inline-block; width: 26px; vertical-align: -3px; }
+  .rank { display: inline-block; margin-left: 6px; vertical-align: -3px; }
   .rank svg { width: 22px; height: 17px; display: block; }
 
   /* Detail dialog */
@@ -552,8 +552,8 @@ function renderBars() {
     col.className = "ibar-col";
     const name = document.createElement("div");
     name.className = "iname";
-    if (today) name.append(crownEl(s.value > 0 ? rank : 0));
     name.append(document.createTextNode(s.name));
+    if (today && s.value > 0 && rank <= 3) name.append(crownEl(rank));
     const track = document.createElement("div");
     track.className = "itrack";
     if (s.value > 0) {
