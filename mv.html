@@ -294,6 +294,14 @@ const IDOLS = [
   { name: "雨夜燕",       color: "#8A79F2" },
   { name: "氷渡香名江",   color: "#51B087" },
 ];
+// 音源(Topic チャンネル)の概要欄はローマ字表記のことがあるので、ローマ字でも探す(姓名どちらの順でも可)
+const ROMAJI = {
+  "花海咲季": ["saki", "hanami"], "月村手毬": ["temari", "tsukimura"], "藤田ことね": ["kotone", "fujita"],
+  "有村麻央": ["mao", "arimura"], "葛城リーリヤ": ["lilja", "katsuragi"], "倉本千奈": ["china", "kuramoto"],
+  "紫雲清夏": ["sumika", "shiun"], "篠澤広": ["hiro", "shinosawa"], "姫崎莉波": ["rinami", "himesaki"],
+  "花海佑芽": ["ume", "hanami"], "秦谷美鈴": ["misuzu", "hataya"], "十王星南": ["sena", "juo"],
+  "雨夜燕": ["tsubame", "amaya"], "氷渡香名江": ["kanae", "hido"],
+};
 // 一覧にない名前でも、歌唱が「名前(CV.声優)」の1人だけならソロ曲として自動で追加する(色は灰色)
 const UNKNOWN_COLOR = "#A3A3A3";
 const IDOL_NAMES = IDOLS.map((i) => i.name);
@@ -306,6 +314,9 @@ const OVERRIDES = {
 
 // 曲名の手動修正: { "動画ID": "曲名" }
 const TITLE_OVERRIDES = {};
+// MV・音源・インストは曲名で1曲にまとめる。曲名が食い違って別の曲になったときの手動修正:
+// { "まとめ先の曲名": ["別の曲名として出ている書き方", ...] }
+const SONG_ALIASES = {};
 // ================================================
 
 const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false };
@@ -316,14 +327,35 @@ function detectIdols(singerLine) {
   const norm = (singerLine || "").replace(/[\s\u3000]/g, "");
   const hits = IDOL_NAMES.filter((n) => norm.includes(n));
   if (hits.length) return hits;
+  // ローマ字表記:声優名(CV.〜)を除いた部分で「名 姓」か「姓 名」を探す
+  const roman = (singerLine || "").replace(/[（(]\s*(?:CV|ＣＶ)[^）)]*[）)]/gi, " ").toLowerCase().replace(/[^a-z]+/g, " ");
+  const padded = ` ${roman.trim()} `;
+  const romanHits = Object.entries(ROMAJI)
+    .filter(([, [g, f]]) => padded.includes(` ${g} ${f} `) || padded.includes(` ${f} ${g} `))
+    .map(([n]) => n);
+  if (romanHits.length) return romanHits;
   const cv = singerLine.match(/(?:CV|ＣＶ)/g) || [];
   const m = singerLine.match(/^([^（(、,・]+?)\s*[（(]\s*(?:CV|ＣＶ)/);
-  if (cv.length === 1 && m) {
+  if (cv.length === 1 && m && /[^\x00-\x7F]/.test(m[1])) {
     const name = m[1].replace(/[\s\u3000]/g, "");
     if (!IDOL_NAMES.includes(name)) { IDOLS.push({ name, color: UNKNOWN_COLOR }); IDOL_NAMES.push(name); }
     return [name];
   }
   return [];
+}
+
+// 音源の曲名から「(Instrumental)」などを外す
+function audioTitle(raw) {
+  return raw.replace(/\s*[-–—]?\s*[(（\[]?\s*(instrumental|off\s*vocal|オフボーカル|カラオケ)\s*[)）\]]?\s*$/i, "").trim();
+}
+// 1曲にまとめるための曲名の比べ方(全角半角・大文字小文字・空白の違いを無視)
+function songKey(title) {
+  const k = title.normalize("NFKC").toLowerCase().replace(/[\s\u3000]/g, "");
+  for (const [to, list] of Object.entries(SONG_ALIASES)) {
+    const t = to.normalize("NFKC").toLowerCase().replace(/[\s\u3000]/g, "");
+    if (k === t || list.some((a) => a.normalize("NFKC").toLowerCase().replace(/[\s\u3000]/g, "") === k)) return t;
+  }
+  return k;
 }
 
 function cleanTitle(raw) {
@@ -429,6 +461,41 @@ async function load() {
   apply(data);
 }
 
+// MV・歌入り音源・インストを曲名で1曲にまとめ、再生回数と前日比を合計する
+// 代表(サムネイル・リンク・曲名)は MV → 歌入り音源 → インストの順で選ぶ
+function groupSongs(videos) {
+  const rankOf = (v) => (v.source === "audio" ? (v.instrumental ? 2 : 1) : 0);
+  const groups = new Map();
+  for (const v of videos) {
+    const title = TITLE_OVERRIDES[v.id] || (v.source === "audio" ? audioTitle(v.rawTitle) : cleanTitle(v.rawTitle));
+    const key = songKey(title);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ...v, title });
+  }
+  return [...groups.values()].map((members) => {
+    members.sort((a, b) => rankOf(a) - rankOf(b));
+    const main = members[0];
+    const withSinger = members.find((m) => m.singerLine) || main;
+    const hasDiff = members.some((m) => m.diff != null);
+    const song = {
+      id: main.id,
+      rawTitle: main.rawTitle,
+      published: members.map((m) => m.published).sort()[0],
+      singerLine: withSinger.singerLine,
+      views: members.reduce((s, m) => s + m.views, 0),
+      diff: hasDiff ? members.reduce((s, m) => s + (m.diff || 0), 0) : null,
+      isNew: members.every((m) => m.isNew),
+      members: members.map((m) => ({ id: m.id, source: m.source || "mv", instrumental: !!m.instrumental })),
+    };
+    const e = enrich(song);
+    e.title = TITLE_OVERRIDES[main.id] || main.title;
+    // OVERRIDES(歌唱の手動修正)はまとめたどの動画IDに書いてもよい
+    const ov = members.map((m) => OVERRIDES[m.id]).find(Boolean);
+    if (ov) { e.idols = ov; e.kind = ov.length === 1 ? "solo" : "group"; e.singer = singerLabel(e.singerLine, ov); }
+    return e;
+  });
+}
+
 function apply(data) {
   const snaps = data.snapshots || [];
   const last = snaps[snaps.length - 1] || { views: {} };
@@ -437,14 +504,14 @@ function apply(data) {
   state.hasPrev = !!prev;
   state.prevDate = prev?.date || null;
   state.updatedAt = last.at || data.updatedAt;
-  state.videos = (data.videos || [])
+  state.videos = groupSongs((data.videos || [])
     .filter((v) => v.id in last.views)
     .map((v) => {
       const views = last.views[v.id];
       const isNew = !!prev && !(v.id in prev.views);
       const diff = prev ? (isNew ? views : views - prev.views[v.id]) : null;
-      return enrich({ ...v, views, diff, isNew });
-    });
+      return { ...v, views, diff, isNew };
+    }));
 
   $("main").classList.remove("hidden");
   if (state.updatedAt) {
