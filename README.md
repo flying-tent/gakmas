@@ -3,7 +3,7 @@
 
 ## MV再生回数(mv.html)
 
-初星学園チャンネルの楽曲MVの再生回数を GitHub Actions(`.github/workflows/update.yml`)が毎日 日本時間0:17ごろに取得し、`data/data.json` に記録します。`mv.html` はそのファイルを読み、前の記録との差を前日比として表示します。
+初星学園チャンネルの楽曲MVの再生回数を GitHub Actions(`.github/workflows/update.yml`)が毎時17分ごろに取得し、`data/data.json` に日ごとの記録として上書き保存します。`mv.html` はそのファイルを読み、前日の最後の記録との差(当日0時からの増加)を前日比として表示します。
 
 - APIキー:リポジトリの Secrets に `YT_API_KEY` として登録
 - 公開:Settings → Pages → Source を「GitHub Actions」にする(このワークフローがサイト全体を公開します)

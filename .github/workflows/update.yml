@@ -2,8 +2,8 @@ name: 再生回数を記録して公開
 
 on:
   schedule:
-    # 毎日 日本時間 0:17 ごろ(UTC 15:17)に実行。混雑時は遅れることがある
-    - cron: "17 15 * * *"
+    # 毎時17分ごろに実行。混雑時は遅れることがある
+    - cron: "17 * * * *"
   workflow_dispatch: # Actions画面から手動でも実行できる
   push:
     branches: [main] # サイトのファイルを更新したときは公開だけ行う
@@ -46,7 +46,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "変更なし"
           else
-            git commit -m "再生回数を記録 $(TZ=Asia/Tokyo date +%Y-%m-%d)"
+            git commit -m "再生回数を記録 $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')"
             git push
           fi
 
