@@ -224,7 +224,7 @@
 
   <main id="main" class="hidden">
     <section class="kpis" aria-label="概要">
-      <div class="kpi"><div class="label">総再生回数</div><div class="value" id="kpiTotal">–</div><div class="diff" id="kpiTotalDiff"></div></div>
+      <div class="kpi"><div class="label" id="kpiTotalLabel">総再生回数</div><div class="value" id="kpiTotal">–</div><div class="diff" id="kpiTotalDiff"></div></div>
       <a class="kpi kpi-top" id="kpiTopLink" aria-label="最多再生MV" target="_blank" rel="noopener">
         <div class="kpi-thumb" id="kpiTopThumb"></div>
         <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
@@ -503,13 +503,17 @@ function growBar(el, pct, delay = 0) {
 }
 
 
+// 「今日」のときは、総再生回数も最多MVも今日0時からの増加で出す
 function renderKpis() {
   const vs = state.videos;
-  const total = vs.reduce((s, v) => s + v.views, 0);
-  countUp($("kpiTotal"), total);
-  diffEl($("kpiTotalDiff"), sumDiff(vs));
-  const top = vs.reduce((a, b) => (b.views > (a?.views ?? -1) ? b : a), null);
-  if (top) countUp($("kpiTop"), top.views); else $("kpiTop").textContent = "–";
+  const today = isToday();
+  const noData = today && !state.hasPrev;
+  $("kpiTotalLabel").textContent = today ? "今日の再生回数" : "総再生回数";
+  const total = vs.reduce((s, v) => s + metric(v), 0);
+  if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total);
+  diffEl($("kpiTotalDiff"), today ? null : sumDiff(vs));
+  const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
+  if (top) countUp($("kpiTop"), metric(top)); else $("kpiTop").textContent = "–";
   $("kpiTopTitle").textContent = top ? top.title : "";
   $("kpiTopDetail").textContent = top ? top.singer : "";
   const th = $("kpiTopThumb");
@@ -696,6 +700,7 @@ document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addE
   if (!r.checked) return;
   state[r.name] = r.value;
   state.expanded = false;
+  if (r.name === "view") renderKpis();
   renderBars();
 }));
 $("moreBtn").addEventListener("click", () => {
