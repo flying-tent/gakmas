@@ -300,7 +300,7 @@ const ROMAJI = {
   "有村麻央": ["mao", "arimura"], "葛城リーリヤ": ["lilja", "katsuragi"], "倉本千奈": ["china", "kuramoto"],
   "紫雲清夏": ["sumika", "shiun"], "篠澤広": ["hiro", "shinosawa"], "姫崎莉波": ["rinami", "himesaki"],
   "花海佑芽": ["ume", "hanami"], "秦谷美鈴": ["misuzu", "hataya"], "十王星南": ["sena", "juo"],
-  "雨夜燕": ["tsubame", "amaya"], "氷渡香名江": ["kanae", "hido"],
+  "雨夜燕": ["tsubame", "amaya"], "氷渡香名江": ["kanae", "hiwatari"],
 };
 // 一覧にない名前でも、歌唱が「名前(CV.声優)」の1人だけならソロ曲として自動で追加する(色は灰色)
 const UNKNOWN_COLOR = "#A3A3A3";
@@ -349,11 +349,12 @@ function audioTitle(raw) {
   return raw.replace(/\s*[-–—]?\s*[(（\[]?\s*(instrumental|off\s*vocal|オフボーカル|カラオケ)\s*[)）\]]?\s*$/i, "").trim();
 }
 // 1曲にまとめるための曲名の比べ方(全角半角・大文字小文字・空白の違いを無視)
+const normTitle = (t) => t.normalize("NFKC").toLowerCase().replace(/[\s\u3000「」『』"“”]/g, "");
 function songKey(title) {
-  const k = title.normalize("NFKC").toLowerCase().replace(/[\s\u3000]/g, "");
+  const k = normTitle(title);
   for (const [to, list] of Object.entries(SONG_ALIASES)) {
-    const t = to.normalize("NFKC").toLowerCase().replace(/[\s\u3000]/g, "");
-    if (k === t || list.some((a) => a.normalize("NFKC").toLowerCase().replace(/[\s\u3000]/g, "") === k)) return t;
+    const t = normTitle(to);
+    if (k === t || list.some((a) => normTitle(a) === k)) return t;
   }
   return k;
 }
@@ -368,6 +369,8 @@ function singerLabel(line, idols) {
   if (!line) return idols.length ? idols.join("・") : "(歌唱情報なし)";
   // 声優表記や「初星学園 (…)」の書き方は外し、アイドル名を「・」でつなぐ
   if (idols.length) return idols.join("・");
+  // 音源の概要欄は「Hatsuboshi Gakuen、作曲者…」のように作家名も並ぶので、アイドル名が読めなければ「初星学園」とだけ出す
+  if (/hatsuboshi\s*gakuen/i.test(line)) return "初星学園";
   return line.replace(/\s*[（(]\s*(?:CV|ＣＶ)[^）)]*[）)]/g, "").replace(/^初星学園\s*[（(]\s*(.+?)\s*[）)]$/, "$1").trim();
 }
 
@@ -508,8 +511,11 @@ function apply(data) {
     .filter((v) => v.id in last.views)
     .map((v) => {
       const views = last.views[v.id];
-      const isNew = !!prev && !(v.id in prev.views);
-      const diff = prev ? (isNew ? views : views - prev.views[v.id]) : null;
+      // 前の記録にない動画:前の記録より後に公開された本当の新曲なら全回数を今日の増加に入れて「NEW」、
+      // 記録を取り始めたばかりの古い動画(音源を追加した初日など)は増加がわからないので数えない
+      const missing = !!prev && !(v.id in prev.views);
+      const isNew = missing && !!v.published && v.published >= prev.at;
+      const diff = !prev ? null : missing ? (isNew ? views : null) : views - prev.views[v.id];
       return { ...v, views, diff, isNew };
     }));
 
