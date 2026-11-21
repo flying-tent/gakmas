@@ -32,6 +32,10 @@
     --title-ink: #6b6966;
     --value-ink: #8f8d89;
     --row-hover: #fff3ea;
+    --radio-panel: #E7E6EA;
+    --radio-on-bg: #FBEBC8;
+    --radio-ring: #9B9A9F;
+    --radio-dot: #EE7F2E;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -52,6 +56,10 @@
       --title-ink: #d6d4cf;
       --value-ink: #b4b2ac;
       --row-hover: #2a2420;
+      --radio-panel: #26262A;
+      --radio-on-bg: #43351F;
+      --radio-ring: #8E8D93;
+      --radio-dot: #F08A3E;
     }
   }
   * { box-sizing: border-box; }
@@ -123,12 +131,19 @@
   .ifill { height: 100%; width: 0; border-radius: 2px; transition: width .7s cubic-bezier(.25, 1, .5, 1); }
   .ival { text-align: right; font-size: 20px; font-weight: 700; color: var(--value-ink); margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.3; }
 
-  /* 累計 / 今日 の切り替え */
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 12px; border-radius: 12px; background: var(--grid); }
-  .tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 15px; font-weight: 500; color: var(--text-secondary); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .tabs button[aria-selected="true"] { background: var(--surface-1); color: var(--text-primary); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  .tabs button:focus { outline: none; }
-  .tabs button:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 1px; }
+  /* 期間・表示の切り替え(ラジオボタン) */
+  .switches { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 0 0 12px; }
+  .radio-group { margin: 0; padding: 8px 10px 10px; border: 0; border-radius: 12px; background: var(--radio-panel); min-width: 0; }
+  .radio-group legend { float: left; width: 100%; padding: 0 2px 6px; font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+  .radios { clear: both; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .radio { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 6px 6px; border-radius: 10px; background: var(--surface-1); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text-primary); -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+  .radio:has(input:checked) { background: var(--radio-on-bg); }
+  .radio input { appearance: none; -webkit-appearance: none; flex: none; width: 18px; height: 18px; margin: 0; border-radius: 50%; border: 2px solid var(--radio-ring); background: var(--surface-1); }
+  .radio input:checked { background: radial-gradient(circle, var(--radio-dot) 0 4.5px, var(--surface-1) 5px); }
+  .radio input:focus { outline: none; }
+  .radio input:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+  .more { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); font: inherit; font-size: 15px; color: var(--text-secondary); cursor: pointer; }
+  .ibars .song-row { padding: 8px 6px; }
   .today-note { text-align: center; color: var(--text-muted); font-size: 14px; padding: 24px 0; }
   .rank { display: inline-block; margin-left: 6px; vertical-align: -3px; }
   .rank svg { width: 22px; height: 17px; display: block; }
@@ -215,12 +230,25 @@
     </section>
 
     <section class="idol-card" aria-label="アイドルごとのソロ曲再生回数(タップで曲ごとの回数)">
-      <div class="tabs" role="tablist" aria-label="集計の切り替え">
-        <button type="button" role="tab" id="tab-total" data-view="total" aria-selected="true">累計</button>
-        <button type="button" role="tab" id="tab-today" data-view="today" aria-selected="false">今日</button>
+      <div class="switches">
+        <fieldset class="radio-group">
+          <legend>期間</legend>
+          <div class="radios">
+            <label class="radio"><input type="radio" name="view" value="total" checked><span>累計</span></label>
+            <label class="radio"><input type="radio" name="view" value="today"><span>今日</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="radio-group">
+          <legend>表示</legend>
+          <div class="radios">
+            <label class="radio"><input type="radio" name="unit" value="idol" checked><span>キャラ</span></label>
+            <label class="radio"><input type="radio" name="unit" value="song"><span>曲</span></label>
+          </div>
+        </fieldset>
       </div>
       <div class="today-note hidden" id="todayNote">今日のランキングは明日から表示されます。</div>
       <div class="ibars" id="bars"></div>
+      <button type="button" class="more hidden" id="moreBtn">もっと見る</button>
     </section>
 
 
@@ -273,7 +301,7 @@ const OVERRIDES = {
 const TITLE_OVERRIDES = {};
 // ================================================
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "total" };
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "total", unit: "idol", expanded: false };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
@@ -526,12 +554,37 @@ function crownEl(rank) {
   return span;
 }
 
+// 曲ごとのランキング(ソロ・ユニット・全体曲のすべてのMV)
+const GROUP_COLOR = "#A3A3A3";
+const SONG_LIMIT = 10;
+function renderSongs() {
+  const box = $("bars");
+  const today = isToday();
+  const list = [...state.videos].sort((a, b) => metric(b) - metric(a));
+  const levels = [...new Set(list.map(metric))];
+  const maxVal = Math.max(1, ...list.map(metric));
+  const shown = state.expanded ? list : list.slice(0, SONG_LIMIT);
+  shown.forEach((v, idx) => {
+    const value = metric(v);
+    const rank = levels.indexOf(value) + 1;
+    const color = v.kind === "solo" ? (IDOLS.find((i) => i.name === v.idols[0])?.color || GROUP_COLOR) : GROUP_COLOR;
+    const row = songRow(v, color, maxVal, idx, { rank: value > 0 && rank <= 3 ? rank : 0, showSinger: true });
+    row.setAttribute("aria-label", `${value > 0 && rank <= 3 ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(value)}回。YouTubeで開く`);
+    box.append(row);
+  });
+  const more = $("moreBtn");
+  more.classList.toggle("hidden", state.expanded || list.length <= SONG_LIMIT);
+  more.textContent = `もっと見る(残り${list.length - shown.length}曲)`;
+}
+
 function renderBars() {
   const box = $("bars");
   box.textContent = "";
+  $("moreBtn").classList.add("hidden");
   const today = isToday();
   $("todayNote").classList.toggle("hidden", !(today && !state.hasPrev));
   if (today && !state.hasPrev) return;
+  if (state.unit === "song") { renderSongs(); return; }
   const stats = idolStats().map((s) => ({ ...s, value: today ? s.diff : s.total }))
     .filter((s) => s.count)
     .sort((a, b) => b.value - a.value);
@@ -576,15 +629,16 @@ function renderBars() {
   });
 }
 
-function songRow(v, color, maxViews, idx = 0) {
+function songRow(v, color, maxViews, idx = 0, opts = {}) {
   const a = document.createElement("a");
   a.className = "song-row";
   a.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(v.id);
   a.target = "_blank"; a.rel = "noopener";
   const info = document.createElement("div");
   const t = document.createElement("div"); t.className = "s-title"; t.textContent = v.title;
+  if (opts.rank) t.append(crownEl(opts.rank));
   const m = document.createElement("div"); m.className = "s-meta";
-  m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (v.kind === "group" ? " · " + v.singer : "");
+  m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (v.kind === "group" || opts.showSinger ? " · " + v.singer : "");
   const bar = document.createElement("div"); bar.className = "s-bar";
   bar.style.background = color; growBar(bar, Math.max(1, (metric(v) / maxViews) * 100), idx * 40);
   const n = document.createElement("div"); n.className = "s-views";
@@ -630,12 +684,16 @@ function openDetail(idol) {
 }
 
 // ---- イベント ----
-document.querySelectorAll(".tabs [data-view]").forEach((b) => b.addEventListener("click", () => {
-  if (state.view === b.dataset.view) return;
-  state.view = b.dataset.view;
-  document.querySelectorAll(".tabs [data-view]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addEventListener("change", () => {
+  if (!r.checked) return;
+  state[r.name] = r.value;
+  state.expanded = false;
   renderBars();
 }));
+$("moreBtn").addEventListener("click", () => {
+  state.expanded = true;
+  renderBars();
+});
 const dlg = $("detail");
 $("detailClose").addEventListener("click", () => dlg.close());
 dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
