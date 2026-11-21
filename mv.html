@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-<title>学マスMV再生回数</title>
+<title>プロデュースノート ～伸びしろ観測記録～</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!--
   再生回数は GitHub Actions(.github/workflows/update.yml)が毎日取得して data/data.json に記録します。
@@ -65,6 +65,7 @@
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
   header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
   h1 { font-size: 22px; margin: 0; letter-spacing: .01em; }
+  .h1-sub { display: inline-block; font-size: .68em; font-weight: 500; color: var(--text-secondary); }
   .updated { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .sub { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
   h2 { font-size: 16px; margin: 0 0 4px; }
@@ -179,7 +180,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>学マス MV再生回数</h1>
+    <h1>プロデュースノート <span class="h1-sub">～伸びしろ観測記録～</span></h1>
     <div class="updated" id="updated"></div>
   </header>
 
@@ -550,6 +551,7 @@ function openDetail(idol) {
   const maxViews = Math.max(1, ...solo.map((v) => v.views), ...group.map((v) => v.views));
 
   $("detailName").textContent = idol.name;
+  $("detail").style.borderColor = idol.color;
   if (solo.length) countUp($("detailTotal"), total); else $("detailTotal").textContent = "-";
   diffEl($("detailDiff"), solo.length ? sumDiff(solo) : null);
 
