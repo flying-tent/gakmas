@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 
 const API_KEY = process.env.YT_API_KEY;
 const MV_PLAYLIST_ID = "UU2dXx-3RXeeP8hA5AGt8vuw"; // 初星学園チャンネルのアップロード一覧
-const AUDIO_PLAYLIST_ID = "UUieSasSDeMIP4m5xGNIwT1Q"; // Hatsuboshi Gakuen - Topic のアップロード一覧(YouTube が自動で作る音源)
+const AUDIO_CHANNEL_ID = "UCieSasSDeMIP4m5xGNIwT1Q"; // Hatsuboshi Gakuen - Topic(YouTube が自動で作る音源のチャンネル)
 const TITLE_FILTER = /Official Music Video/i;
 // ハッシュタグ付きのタイトルはショート動画(縦型の切り抜き)なので除外する
 const SHORTS_TITLE = /#/;
@@ -73,18 +73,62 @@ for (const it of await playlistItems(MV_PLAYLIST_ID)) {
 }
 
 // 2. 音源(取れなかったときは MV だけで続ける)
+// 自動生成チャンネルはアップロード一覧が取れないので、
+//   (1) チャンネルの再生リスト(アルバムごと)から集める
+//   (2) それで1本も見つからなければ検索で集める(1回100ユニットかかるため、結果は日付ごとに保存して1日1回だけ)
+// 曲名と概要欄は videos.list でまとめて取り直す(検索結果の概要欄は途中で切れているため)
+let data = { videos: [], snapshots: [] };
+try { data = JSON.parse(await readFile(DATA_FILE, "utf8")); } catch {}
+const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+
+async function audioIdsFromPlaylists() {
+  const ids = new Set();
+  let pageToken = "";
+  const lists = [];
+  do {
+    const d = await api("playlists", { part: "snippet", channelId: AUDIO_CHANNEL_ID, maxResults: 50, ...(pageToken ? { pageToken } : {}) });
+    lists.push(...(d.items || []));
+    pageToken = d.nextPageToken || "";
+  } while (pageToken);
+  for (const pl of lists) for (const it of await playlistItems(pl.id)) if (idOf(it)) ids.add(idOf(it));
+  console.log(`音源:再生リスト ${lists.length}件から ${ids.size}本`);
+  return [...ids];
+}
+async function audioIdsFromSearch() {
+  if (data.audioSearch?.date === today) {
+    console.log(`音源:今日の検索結果(${data.audioSearch.ids.length}本)を使います`);
+    return data.audioSearch.ids;
+  }
+  const ids = new Set();
+  let pageToken = "";
+  for (let page = 0; page < 10; page++) {
+    const d = await api("search", { part: "id", channelId: AUDIO_CHANNEL_ID, type: "video", maxResults: 50, order: "date", ...(pageToken ? { pageToken } : {}) });
+    for (const it of d.items || []) if (it.id?.videoId) ids.add(it.id.videoId);
+    pageToken = d.nextPageToken || "";
+    if (!pageToken) break;
+  }
+  data.audioSearch = { date: today, ids: [...ids] };
+  console.log(`音源:検索で ${ids.size}本`);
+  return [...ids];
+}
+
 let audioCount = 0;
 try {
-  for (const it of await playlistItems(AUDIO_PLAYLIST_ID)) {
-    const sn = it.snippet || {};
-    const title = sn.title || "";
-    if (!title || /^(Private|Deleted) video$/i.test(title)) continue;
-    if (AUDIO_EXCLUDE.test(title)) continue;
-    videos.push({
-      id: idOf(it), source: "audio", instrumental: INSTRUMENTAL.test(title),
-      rawTitle: title, published: publishedOf(it), singerLine: audioSingerLine(sn.description),
-    });
-    audioCount++;
+  let ids = await audioIdsFromPlaylists();
+  if (!ids.length) ids = await audioIdsFromSearch();
+  for (let i = 0; i < ids.length; i += 50) {
+    const d = await api("videos", { part: "snippet", id: ids.slice(i, i + 50).join(","), maxResults: 50 });
+    for (const v of d.items || []) {
+      const sn = v.snippet || {};
+      if (sn.channelId && sn.channelId !== AUDIO_CHANNEL_ID) continue;
+      const title = sn.title || "";
+      if (!title || AUDIO_EXCLUDE.test(title)) continue;
+      videos.push({
+        id: v.id, source: "audio", instrumental: INSTRUMENTAL.test(title),
+        rawTitle: title, published: sn.publishedAt, singerLine: audioSingerLine(sn.description),
+      });
+      audioCount++;
+    }
   }
 } catch (e) {
   console.warn(`音源の一覧を取得できませんでした(MVだけで続けます): ${e.message}`);
@@ -115,8 +159,6 @@ console.log(`MV ${listed.filter((v) => v.source === "mv").length}本、音源 ${
 if (!listed.some((v) => v.source === "mv")) throw new Error("楽曲MVが1本も取得できませんでした");
 
 // 4. 記録に追加(同じ日付の記録は上書き)
-let data = { videos: [], snapshots: [] };
-try { data = JSON.parse(await readFile(DATA_FILE, "utf8")); } catch {}
 
 const now = new Date();
 const date = now.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }); // YYYY-MM-DD(日本時間)

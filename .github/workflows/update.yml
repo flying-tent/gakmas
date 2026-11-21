@@ -45,6 +45,13 @@ jobs:
         env:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
 
+      - name: お試し実行の結果をログに出す
+        if: inputs.dry_run
+        run: |
+          echo "=====DRY-RUN-DATA-BEGIN====="
+          node -e 'const d=require("./data/data.json");const l=d.snapshots.at(-1);const p=d.snapshots.at(-2);console.log(JSON.stringify({videos:d.videos,snapshots:[p,l].filter(Boolean)}))'
+          echo "=====DRY-RUN-DATA-END====="
+
       - name: お試し実行の結果を残す
         if: inputs.dry_run
         uses: actions/upload-artifact@v4
