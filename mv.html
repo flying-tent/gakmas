@@ -276,6 +276,13 @@ function cleanTitle(raw) {
   return m ? m[1] : raw.replace(/Official Music Video.*$/i, "").replace(/^初星学園\s*/, "").trim();
 }
 
+// 表示用の歌唱者名。「(CV.声優)」を外す。声優表記があってアイドル名が読めた曲は、名前を「・」でつなぐ
+function singerLabel(line, idols) {
+  if (!line) return idols.length ? idols.join("・") : "(歌唱情報なし)";
+  if (/CV|ＣＶ/.test(line) && idols.length) return idols.join("・");
+  return line.replace(/\s*[（(]\s*(?:CV|ＣＶ)[^）)]*[）)]/g, "").trim();
+}
+
 function enrich(v) {
   const idols = OVERRIDES[v.id] || detectIdols(v.singerLine);
   return {
@@ -283,7 +290,7 @@ function enrich(v) {
     title: TITLE_OVERRIDES[v.id] || cleanTitle(v.rawTitle),
     idols,
     kind: idols.length === 1 ? "solo" : "group",
-    singer: v.singerLine || (idols.length ? idols.join("・") : "(歌唱情報なし)"),
+    singer: singerLabel(v.singerLine, idols),
   };
 }
 
