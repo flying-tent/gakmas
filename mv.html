@@ -237,7 +237,10 @@ const IDOLS = [
   { name: "秦谷美鈴",     color: "#6F9AEE" },
   { name: "十王星南",     color: "#F0AC45" },
   { name: "雨夜燕",       color: "#8A79F2" },
+  { name: "氷渡香名江",   color: "#51B087" },
 ];
+// 一覧にない名前でも、歌唱が「名前(CV.声優)」の1人だけならソロ曲として自動で追加する(色は灰色)
+const UNKNOWN_COLOR = "#A3A3A3";
 const IDOL_NAMES = IDOLS.map((i) => i.name);
 
 // 自動判定がずれた動画の手動修正: { "動画ID": ["アイドル名", ...] }
@@ -256,7 +259,16 @@ const fmt = new Intl.NumberFormat("ja-JP");
 
 function detectIdols(singerLine) {
   const norm = (singerLine || "").replace(/[\s\u3000]/g, "");
-  return IDOL_NAMES.filter((n) => norm.includes(n));
+  const hits = IDOL_NAMES.filter((n) => norm.includes(n));
+  if (hits.length) return hits;
+  const cv = singerLine.match(/(?:CV|ＣＶ)/g) || [];
+  const m = singerLine.match(/^([^（(、,・]+?)\s*[（(]\s*(?:CV|ＣＶ)/);
+  if (cv.length === 1 && m) {
+    const name = m[1].replace(/[\s\u3000]/g, "");
+    if (!IDOL_NAMES.includes(name)) { IDOLS.push({ name, color: UNKNOWN_COLOR }); IDOL_NAMES.push(name); }
+    return [name];
+  }
+  return [];
 }
 
 function cleanTitle(raw) {
