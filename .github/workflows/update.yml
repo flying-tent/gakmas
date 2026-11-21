@@ -5,6 +5,11 @@ on:
     # 毎時7分ごろに実行。混雑時は遅れることがある
     - cron: "7 * * * *"
   workflow_dispatch: # Actions画面から手動でも実行できる
+    inputs:
+      dry_run:
+        description: "お試し実行(記録も公開もせず、取得結果をファイルとして残すだけ)"
+        type: boolean
+        default: false
   push:
     branches: [main] # サイトのファイルを更新したときは公開だけ行う
 
@@ -24,9 +29,10 @@ jobs:
     steps:
       # 起動時点ではなく、その時の最新の main を取り出す
       # (続けて起動されたとき、前の実行の記録コミットの上に積むため)
+      # お試し実行のときは、起動したブランチのコードで動かす
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
 
       - uses: actions/setup-node@v4
         if: github.event_name != 'push'
@@ -39,8 +45,15 @@ jobs:
         env:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
 
+      - name: お試し実行の結果を残す
+        if: inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: dry-run-data
+          path: data/data.json
+
       - name: 記録をコミット
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && !inputs.dry_run
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -53,12 +66,15 @@ jobs:
           fi
 
       - name: 公開するファイルをまとめる
+        if: ${{ !inputs.dry_run }}
         run: |
           mkdir -p _site
           rsync -a --exclude '.git' --exclude '.github' --exclude 'scripts' --exclude '_site' ./ _site/
 
       - uses: actions/configure-pages@v5
+        if: ${{ !inputs.dry_run }}
       - uses: actions/upload-pages-artifact@v3
+        if: ${{ !inputs.dry_run }}
         with:
           path: _site
 
@@ -66,6 +82,7 @@ jobs:
   # (同じジョブ内で続けて公開すると、アップロード直後のファイルがまだ見えずに失敗することがあるため分ける)
   deploy:
     needs: update
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
