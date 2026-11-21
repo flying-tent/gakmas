@@ -22,7 +22,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      # 起動時点ではなく、その時の最新の main を取り出す
+      # (続けて起動されたとき、前の実行の記録コミットの上に積むため)
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         if: github.event_name != 'push'
