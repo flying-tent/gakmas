@@ -155,6 +155,12 @@
   }
   dialog#detail[open] { display: flex; flex-direction: column; }
   dialog#detail::backdrop { background: rgba(0,0,0,.45); }
+  /* 開くときにフェードで表示する */
+  dialog#detail[open] { animation: detail-in .22s ease-out; }
+  dialog#detail[open]::backdrop { animation: backdrop-in .22s ease-out; }
+  @keyframes detail-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { dialog#detail[open], dialog#detail[open]::backdrop { animation: none; } }
   .d-head {
     display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 12px; align-items: center;
     padding: 16px 16px 12px; border-bottom: 1px solid var(--grid);
