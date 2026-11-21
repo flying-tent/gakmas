@@ -234,15 +234,15 @@
         <fieldset class="radio-group">
           <legend>期間</legend>
           <div class="radios">
-            <label class="radio"><input type="radio" name="view" value="total" checked><span>累計</span></label>
-            <label class="radio"><input type="radio" name="view" value="today"><span>今日</span></label>
+            <label class="radio"><input type="radio" name="view" value="today" checked><span>今日</span></label>
+            <label class="radio"><input type="radio" name="view" value="total"><span>累計</span></label>
           </div>
         </fieldset>
         <fieldset class="radio-group">
           <legend>表示</legend>
           <div class="radios">
-            <label class="radio"><input type="radio" name="unit" value="idol" checked><span>キャラ</span></label>
-            <label class="radio"><input type="radio" name="unit" value="song"><span>曲</span></label>
+            <label class="radio"><input type="radio" name="unit" value="song" checked><span>曲</span></label>
+            <label class="radio"><input type="radio" name="unit" value="idol"><span>キャラ</span></label>
           </div>
         </fieldset>
       </div>
@@ -301,7 +301,7 @@ const OVERRIDES = {
 const TITLE_OVERRIDES = {};
 // ================================================
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "total", unit: "idol", expanded: false };
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
