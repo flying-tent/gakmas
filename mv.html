@@ -575,7 +575,7 @@ function renderSongs() {
   });
   const more = $("moreBtn");
   more.classList.toggle("hidden", state.expanded || list.length <= SONG_LIMIT);
-  more.textContent = `もっと見る(残り${list.length - shown.length}曲)`;
+  more.textContent = "もっと見る";
 }
 
 function renderBars() {
