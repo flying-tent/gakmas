@@ -123,6 +123,16 @@
   .ifill { height: 100%; width: 0; border-radius: 2px; transition: width .7s cubic-bezier(.25, 1, .5, 1); }
   .ival { text-align: right; font-size: 20px; font-weight: 700; color: var(--value-ink); margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.3; }
 
+  /* 累計 / 今日 の切り替え */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 12px; border-radius: 12px; background: var(--grid); }
+  .tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 15px; font-weight: 500; color: var(--text-secondary); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .tabs button[aria-selected="true"] { background: var(--surface-1); color: var(--text-primary); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .tabs button:focus { outline: none; }
+  .tabs button:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 1px; }
+  .today-note { text-align: center; color: var(--text-muted); font-size: 14px; padding: 24px 0; }
+  .rank { display: inline-block; width: 26px; vertical-align: -3px; }
+  .rank svg { width: 22px; height: 17px; display: block; }
+
   /* Detail dialog */
   dialog#detail {
     width: min(560px, calc(100% - 24px)); max-height: min(80vh, 760px); padding: 0; border: 2px solid var(--card-line);
@@ -205,6 +215,11 @@
     </section>
 
     <section class="idol-card" aria-label="アイドルごとのソロ曲再生回数(タップで曲ごとの回数)">
+      <div class="tabs" role="tablist" aria-label="集計の切り替え">
+        <button type="button" role="tab" id="tab-total" data-view="total" aria-selected="true">累計</button>
+        <button type="button" role="tab" id="tab-today" data-view="today" aria-selected="false">今日</button>
+      </div>
+      <div class="today-note hidden" id="todayNote">今日のランキングは明日から表示されます。</div>
       <div class="ibars" id="bars"></div>
     </section>
 
@@ -258,7 +273,7 @@ const OVERRIDES = {
 const TITLE_OVERRIDES = {};
 // ================================================
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false };
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "total" };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
@@ -491,36 +506,69 @@ function thumbEl(v) {
   }, { once: true });
   return img;
 }
+// 「累計」タブは累計の再生回数、「今日」タブは今日0時からの増加で集計する
+const isToday = () => state.view === "today";
+const metric = (v) => (isToday() ? (v.diff ?? 0) : v.views);
+
+// 1〜3位の王冠(金・銀・銅)
+const CROWN_COLORS = [
+  { fill: "#F4BE2C", band: "#E3A812", line: "#C98F0A" },
+  { fill: "#D5D9DE", band: "#BCC2C9", line: "#8E959E" },
+  { fill: "#DE9A62", band: "#C47A43", line: "#9A5A2B" },
+];
+function crownEl(rank) {
+  const span = document.createElement("span");
+  span.className = "rank";
+  const c = CROWN_COLORS.at(rank - 1);
+  if (c) {
+    span.innerHTML = `<svg viewBox="0 0 32 24" role="img" aria-label="${rank}位"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="${c.fill}" stroke="${c.line}" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="${c.band}" stroke="${c.line}" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="${c.fill}" stroke="${c.line}" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="${c.fill}" stroke="${c.line}" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="${c.fill}" stroke="${c.line}" stroke-width="1.2"/></svg>`;
+  }
+  return span;
+}
+
 function renderBars() {
-  const stats = idolStats().sort((a, b) => b.total - a.total);
-  const maxVal = Math.max(1, ...stats.map((s) => s.total));
   const box = $("bars");
   box.textContent = "";
+  const today = isToday();
+  $("todayNote").classList.toggle("hidden", !(today && !state.hasPrev));
+  if (today && !state.hasPrev) return;
+  const stats = idolStats().map((s) => ({ ...s, value: today ? s.diff : s.total }))
+    .filter((s) => s.count)
+    .sort((a, b) => b.value - a.value);
+  if (!today) stats.push(...idolStats().filter((s) => !s.count).map((s) => ({ ...s, value: 0 })));
+  const maxVal = Math.max(1, ...stats.map((s) => s.value));
+  // 同じ値は同じ順位(1, 2, 2, 3 …)
+  const levels = [...new Set(stats.map((s) => s.value))];
   stats.forEach((s, idx) => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "irow";
-    row.setAttribute("aria-label", `${s.name} ソロ曲合計 ${fmt.format(s.total)}回` + (state.hasPrev && s.count ? `、前日比 ${s.diff >= 0 ? "+" : "−"}${fmt.format(Math.abs(s.diff))}` : "") + "。タップで曲ごとの回数");
+    const rank = levels.indexOf(s.value) + 1;
+    row.setAttribute("aria-label", today
+      ? `${rank <= 3 && s.value > 0 ? rank + "位 " : ""}${s.name} 今日の再生回数 ${fmt.format(s.value)}回。タップで曲ごとの回数`
+      : `${s.name} ソロ曲合計 ${fmt.format(s.total)}回` + (state.hasPrev && s.count ? `、前日比 ${s.diff >= 0 ? "+" : "−"}${fmt.format(Math.abs(s.diff))}` : "") + "。タップで曲ごとの回数");
 
     const col = document.createElement("div");
     col.className = "ibar-col";
     const name = document.createElement("div");
-    name.className = "iname"; name.textContent = s.name;
+    name.className = "iname";
+    if (today) name.append(crownEl(s.value > 0 ? rank : 0));
+    name.append(document.createTextNode(s.name));
     const track = document.createElement("div");
     track.className = "itrack";
-    if (s.total > 0) {
+    if (s.value > 0) {
       const fill = document.createElement("div");
       fill.className = "ifill";
       fill.style.background = s.idol.color;
-      growBar(fill, (s.total / maxVal) * 100, idx * 40);
+      growBar(fill, (s.value / maxVal) * 100, idx * 40);
       track.append(fill);
     }
     const val = document.createElement("div");
     val.className = "ival";
-    if (s.count) countUp(val, s.total, undefined, idx * 40); else val.textContent = "-";
+    if (s.count) countUp(val, s.value, undefined, idx * 40); else val.textContent = "-";
     const dv = document.createElement("div");
     dv.className = "diff";
-    if (s.count) diffEl(dv, s.diff, { delay: idx * 40 });
+    if (s.count && !today) diffEl(dv, s.diff, { delay: idx * 40 });
     col.append(name, track, val, dv);
     row.append(col);
     row.addEventListener("click", () => openDetail(s.idol));
@@ -538,10 +586,10 @@ function songRow(v, color, maxViews, idx = 0) {
   const m = document.createElement("div"); m.className = "s-meta";
   m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (v.kind === "group" ? " · " + v.singer : "");
   const bar = document.createElement("div"); bar.className = "s-bar";
-  bar.style.background = color; growBar(bar, Math.max(1, (v.views / maxViews) * 100), idx * 40);
+  bar.style.background = color; growBar(bar, Math.max(1, (metric(v) / maxViews) * 100), idx * 40);
   const n = document.createElement("div"); n.className = "s-views";
-  const nn = document.createElement("span"); n.append(nn); countUp(nn, v.views, undefined, idx * 40);
-  const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, v.diff, { isNew: v.isNew, delay: idx * 40 });
+  const nn = document.createElement("span"); n.append(nn); countUp(nn, metric(v), undefined, idx * 40);
+  const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, isToday() && !v.isNew ? null : v.diff, { isNew: v.isNew, delay: idx * 40 });
   n.append(nd);
   info.append(t, m, bar, n);
   a.append(thumbEl(v), info);
@@ -549,15 +597,15 @@ function songRow(v, color, maxViews, idx = 0) {
 }
 
 function openDetail(idol) {
-  const solo = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === idol.name).sort((a, b) => b.views - a.views);
-  const group = state.videos.filter((v) => v.kind === "group" && v.idols.includes(idol.name)).sort((a, b) => b.views - a.views);
-  const total = solo.reduce((s, v) => s + v.views, 0);
-  const maxViews = Math.max(1, ...solo.map((v) => v.views), ...group.map((v) => v.views));
+  const solo = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === idol.name).sort((a, b) => metric(b) - metric(a));
+  const group = state.videos.filter((v) => v.kind === "group" && v.idols.includes(idol.name)).sort((a, b) => metric(b) - metric(a));
+  const total = solo.reduce((s, v) => s + metric(v), 0);
+  const maxViews = Math.max(1, ...solo.map(metric), ...group.map(metric));
 
   $("detailName").textContent = idol.name;
   $("detail").style.borderColor = idol.color;
   if (solo.length) countUp($("detailTotal"), total); else $("detailTotal").textContent = "-";
-  diffEl($("detailDiff"), solo.length ? sumDiff(solo) : null);
+  diffEl($("detailDiff"), solo.length && !isToday() ? sumDiff(solo) : null);
 
   const body = $("detailBody");
   body.textContent = "";
@@ -582,6 +630,12 @@ function openDetail(idol) {
 }
 
 // ---- イベント ----
+document.querySelectorAll(".tabs [data-view]").forEach((b) => b.addEventListener("click", () => {
+  if (state.view === b.dataset.view) return;
+  state.view = b.dataset.view;
+  document.querySelectorAll(".tabs [data-view]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+  renderBars();
+}));
 const dlg = $("detail");
 $("detailClose").addEventListener("click", () => dlg.close());
 dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
