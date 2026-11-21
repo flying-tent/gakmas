@@ -2,8 +2,8 @@ name: 再生回数を記録して公開
 
 on:
   schedule:
-    # 毎時0分ごろに実行。混雑時は遅れることがある
-    - cron: "0 * * * *"
+    # 毎時7分ごろに実行。混雑時は遅れることがある
+    - cron: "7 * * * *"
   workflow_dispatch: # Actions画面から手動でも実行できる
   push:
     branches: [main] # サイトのファイルを更新したときは公開だけ行う
