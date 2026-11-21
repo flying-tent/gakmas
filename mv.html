@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<title>学マスMV再生回数</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!--
+  再生回数は GitHub Actions(.github/workflows/update.yml)が毎日取得して data/data.json に記録します。
+  このページはそのファイルを読み、最新の記録と1つ前の記録の差を「前日比」として表示します。
+  ?demo を付けて開くとダミー値で表示します。
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f4f2;
+    --surface-1: #fcfcfb;
+    --border: #e2e1dc;
+    --grid: #ecebe7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7974;
+    --series-1: #2a78d6;
+    --series-1-hover: #4a8fe0;
+    --accent-soft: #e8f0fb;
+    --critical: #c8302f;
+    --card-bg: #fffefc;
+    --card-line: #f7cfb0;
+    --title-ink: #6b6966;
+    --value-ink: #8f8d89;
+    --row-hover: #fff3ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --border: #2e2e2c;
+      --grid: #262624;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8e8d86;
+      --series-1: #3987e5;
+      --series-1-hover: #5a9bea;
+      --accent-soft: #1d2a3b;
+      --critical: #e66767;
+      --card-bg: #1c1b1a;
+      --card-line: #5a4232;
+      --title-ink: #d6d4cf;
+      --value-ink: #b4b2ac;
+      --row-hover: #2a2420;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "IBM Plex Sans JP", system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    background: var(--surface-0);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: .01em; }
+  .sub { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .note { color: var(--text-muted); font-size: 12px; }
+  button, select, input[type="text"], input[type="password"] {
+    font: inherit; font-size: 14px; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--text-muted); }
+  button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 6px 12px; background: transparent; color: var(--text-secondary); }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text-primary); font-weight: 600; }
+
+  /* KPI */
+  .kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-bottom: 16px; }
+  #kpiTotal { text-align: right; }
+  #kpiTop, #kpiTopTitle, #kpiTopDetail { text-align: right; }
+  .kpi-top { display: grid; grid-template-columns: 176px auto minmax(0, 1fr); gap: 12px; align-items: center; text-decoration: none; color: inherit; }
+  .crown { width: 34px; height: 26px; align-self: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.15)); }
+  .kpi-top:hover { border-color: var(--text-muted); }
+  .kpi-thumb .thumb { width: 100%; }
+  .kpi .top-title { font-weight: 700; font-size: 15px; line-height: 1.35; margin-top: 2px; }
+  @media (max-width: 640px) {
+    .kpis { grid-template-columns: minmax(0, 1fr); }
+    .kpi-top { grid-template-columns: 112px auto minmax(0, 1fr); gap: 8px; }
+    .crown { width: 28px; height: 21px; }
+  }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .kpi .label { font-size: 12px; color: var(--text-secondary); }
+  .kpi .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi .detail { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Idol bars (ゲーム風) */
+  .idol-card {
+    padding: 4px 0 8px; margin-bottom: 16px;
+  }
+  .idol-card h2 { text-align: center; font-size: 22px; color: var(--title-ink); margin: 0; font-weight: 700; letter-spacing: .04em; }
+  .idol-sub { text-align: center; font-size: 12px; color: var(--text-muted); margin: 2px 0 18px; }
+  .ibars { display: grid; gap: 6px; }
+  .irow {
+    display: grid; grid-template-columns: 1fr; align-items: center;
+    width: 100%; padding: 6px 8px; border: 0; border-radius: 12px; background: transparent;
+    text-align: left; cursor: pointer; color: inherit; font: inherit;
+  }
+  .irow:hover, .irow:focus-visible { background: var(--row-hover); outline: none; }
+  .irow:active { transform: scale(.99); }
+  .ibar-col { min-width: 0; }
+  .iname { font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 2px; }
+  .itrack { height: 26px; }
+  .ifill { height: 100%; width: 0; border-radius: 2px; transition: width .7s cubic-bezier(.25, 1, .5, 1); }
+  .ival { text-align: right; font-size: 20px; font-weight: 700; color: var(--value-ink); margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.3; }
+
+  /* Detail dialog */
+  dialog#detail {
+    width: min(560px, calc(100% - 24px)); max-height: min(80vh, 760px); padding: 0; border: 2px solid var(--card-line);
+    border-radius: 18px; background: var(--card-bg); color: var(--text-primary); overflow: hidden;
+  }
+  dialog#detail[open] { display: flex; flex-direction: column; }
+  dialog#detail::backdrop { background: rgba(0,0,0,.45); }
+  .d-head {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 12px; align-items: center;
+    padding: 16px 16px 12px; border-bottom: 1px solid var(--grid);
+  }
+  .d-name { grid-column: 1; grid-row: 1; font-size: 18px; font-weight: 700; line-height: 1.4; }
+  .d-total { grid-column: 2; grid-row: 1; text-align: right; font-size: 18px; font-weight: 700; line-height: 1.4; font-variant-numeric: tabular-nums; }
+  .d-diff { grid-column: 2; grid-row: 2; text-align: right; }
+  .d-close { grid-column: 3; grid-row: 1 / span 2; }
+  .d-close { width: 36px; height: 36px; border-radius: 50%; font-size: 20px; line-height: 1; padding: 0; }
+  .d-body { overflow-y: auto; padding: 8px 12px 16px; }
+  .d-section { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin: 12px 4px 6px; }
+  .song-row {
+    display: grid; grid-template-columns: 136px 1fr; gap: 12px; align-items: center; padding: 8px 4px;
+    border-radius: 10px; text-decoration: none; color: inherit;
+  }
+  .song-row:hover { background: var(--row-hover); }
+  .song-row .thumb { width: 136px; }
+  .s-title { font-weight: 700; font-size: 14px; line-height: 1.35; }
+  .s-meta { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .s-bar { height: 8px; width: 0; border-radius: 2px; margin-top: 6px; transition: width .7s cubic-bezier(.25, 1, .5, 1); }
+  @media (prefers-reduced-motion: reduce) { .ifill, .s-bar { transition: none; } }
+  .s-views { font-size: 16px; font-weight: 700; color: var(--value-ink); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .diff { font-size: 13px; font-weight: 500; color: var(--text-secondary); font-variant-numeric: tabular-nums; line-height: 1.4; }
+  .diff .dl { color: var(--text-muted); font-weight: 400; margin-right: .4em; }
+  .diff.new { color: var(--series-1); font-weight: 700; }
+  .kpi .diff, .ival + .diff { text-align: right; }
+  .s-views .diff { display: inline; margin-left: 8px; }
+  .unit { font-size: .6em; font-weight: 400; margin-left: .12em; letter-spacing: .02em; }
+  .d-empty { color: var(--text-muted); font-size: 13px; padding: 8px 4px; }
+
+  .thumb { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; display: block; background: var(--grid); }
+
+  /* Status */
+  .status { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-1); margin-bottom: 16px; font-size: 14px; }
+  .status.error { border-color: var(--critical); }
+  .status.error strong { color: var(--critical); }
+  .hidden { display: none !important; }
+  .foot { margin-top: 24px; text-align: center; }
+
+  @media (max-width: 640px) {
+    .irow { padding: 5px 4px; }
+    .ival { font-size: 18px; }
+    .song-row { grid-template-columns: 112px 1fr; gap: 10px; }
+    .song-row .thumb { width: 112px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>学マス MV再生回数</h1>
+    </div>
+  </header>
+
+  <div id="status" class="status hidden" role="status"></div>
+
+  <main id="main" class="hidden">
+    <section class="kpis" aria-label="概要">
+      <div class="kpi"><div class="label">総再生回数</div><div class="value" id="kpiTotal">–</div><div class="diff" id="kpiTotalDiff"></div></div>
+      <a class="kpi kpi-top" id="kpiTopLink" aria-label="最多再生MV" target="_blank" rel="noopener">
+        <div class="kpi-thumb" id="kpiTopThumb"></div>
+        <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
+        <div class="kpi-top-info">
+          <div class="value" id="kpiTop">–</div>
+          <div class="top-title" id="kpiTopTitle"></div>
+          <div class="detail" id="kpiTopDetail"></div>
+        </div>
+      </a>
+    </section>
+
+    <section class="idol-card" aria-label="アイドルごとのソロ曲再生回数(タップで曲ごとの回数)">
+      <div class="ibars" id="bars"></div>
+    </section>
+
+
+  </main>
+  <footer class="note foot">本ツールは非公式のファンメイドツールです。<br>「学園アイドルマスター」の公式とは一切関係ありません。</footer>
+</div>
+<dialog id="detail" aria-labelledby="detailName">
+  <div class="d-head">
+    <div class="d-name" id="detailName"></div>
+    <div class="d-total" id="detailTotal"></div>
+    <div class="diff d-diff" id="detailDiff"></div>
+    <button type="button" class="d-close" id="detailClose" aria-label="閉じる">×</button>
+  </div>
+  <div class="d-body" id="detailBody"></div>
+</dialog>
+
+<script>
+// ===================== 設定 =====================
+const DATA_URL = "data/data.json";
+
+// アイドル一覧(この順でグラフに並ぶ)。概要欄の「歌:」行から name を探す
+// color: バーの色
+const IDOLS = [
+  { name: "花海咲季",     color: "#E85B66" },
+  { name: "月村手毬",     color: "#56AEE2" },
+  { name: "藤田ことね",   color: "#F2CC3A" },
+  { name: "有村麻央",     color: "#B566C6" },
+  { name: "葛城リーリヤ", color: "#BFD0D6" },
+  { name: "倉本千奈",     color: "#EF8E3E" },
+  { name: "紫雲清夏",     color: "#9BD663" },
+  { name: "篠澤広",       color: "#56B8D2" },
+  { name: "姫崎莉波",     color: "#EC88BC" },
+  { name: "花海佑芽",     color: "#E35A38" },
+  { name: "秦谷美鈴",     color: "#6F9AEE" },
+  { name: "十王星南",     color: "#F0AC45" },
+  { name: "雨夜燕",       color: "#8A79F2" },
+];
+const IDOL_NAMES = IDOLS.map((i) => i.name);
+
+// 自動判定がずれた動画の手動修正: { "動画ID": ["アイドル名", ...] }
+// 1人ならソロ、2人以上(または空配列)ならユニット・全体曲として扱う
+const OVERRIDES = {
+  // "xxxxxxxxxxx": ["花海咲季"],
+};
+
+// 曲名の手動修正: { "動画ID": "曲名" }
+const TITLE_OVERRIDES = {};
+// ================================================
+
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false };
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat("ja-JP");
+
+function detectIdols(singerLine) {
+  const norm = (singerLine || "").replace(/[\s\u3000]/g, "");
+  return IDOL_NAMES.filter((n) => norm.includes(n));
+}
+
+function cleanTitle(raw) {
+  const m = raw.match(/「(.+?)」/);
+  return m ? m[1] : raw.replace(/Official Music Video.*$/i, "").replace(/^初星学園\s*/, "").trim();
+}
+
+function enrich(v) {
+  const idols = OVERRIDES[v.id] || detectIdols(v.singerLine);
+  return {
+    ...v,
+    title: TITLE_OVERRIDES[v.id] || cleanTitle(v.rawTitle),
+    idols,
+    kind: idols.length === 1 ? "solo" : "group",
+    singer: v.singerLine || (idols.length ? idols.join("・") : "(歌唱情報なし)"),
+  };
+}
+
+function showStatus(parts, isError) {
+  const el = $("status");
+  el.className = "status" + (isError ? " error" : "");
+  el.textContent = "";
+  if (parts) el.append(...parts);
+  else el.classList.add("hidden");
+}
+function msg(strong, rest) {
+  const s = document.createElement("strong");
+  s.textContent = strong;
+  return [s, document.createTextNode(rest ? " " + rest : "")];
+}
+
+// ---- デモモード(?demo を付けて開くとダミー値で表示) ----
+const DEMO = new URLSearchParams(location.search).has("demo");
+function demoData() {
+  const solo = [
+    ["Fighting My Way", "花海咲季", 9800000], ["Luna say maybe", "月村手毬", 12400000],
+    ["世界一可愛い私", "藤田ことね", 15600000], ["白線", "葛城リーリヤ", 7300000],
+    ["Wonder Scale", "倉本千奈", 5100000], ["clumsy trick", "姫崎莉波", 6200000],
+    ["Fluorite", "有村麻央", 6900000], ["Tame-Lie-One-Step", "紫雲清夏", 5800000],
+    ["光景", "篠澤広", 7700000], ["め", "篠澤広", 2100000],
+    ["The Rolling Riceball", "花海佑芽", 4300000], ["VEIL", "秦谷美鈴", 3600000],
+    ["Roar", "十王星南", 2900000], ["ダミー曲A", "雨夜燕", 1500000],
+    ["ダミー曲B", "花海咲季", 3400000], ["ダミー曲C", "月村手毬", 4100000],
+    ["ダミー曲D", "藤田ことね", 2800000], ["ダミー曲E", "有村麻央", 1900000],
+  ];
+  const group = [
+    ["Campus mode!!", "初星学園", 8800000], ["初", "初星学園", 6400000],
+    ["Agitato", "初星学園 (花海咲季・葛城リーリヤ・花海佑芽)", 1100000],
+    ["ENDLESS DANCE", "初星学園 (花海佑芽・秦谷美鈴・十王星南)", 2600000, "j38KXTf08Rs"],
+    ["みちなるひろがる", "初星学園 (倉本千奈・篠澤広)", 3300000],
+    ["SUGAR FLAVOR", "初星学園 (有村麻央・姫崎莉波)", 3000000],
+    ["ときめきエモーション", "初星学園 (葛城リーリヤ・紫雲清夏)", 2700000],
+    ["ダミー新曲", "初星学園 (花海咲季・月村手毬・藤田ことね)", 420000],
+  ];
+  const all = [...solo, ...group];
+  const start = new Date("2024-05-01").getTime();
+  const span = Date.now() - 30 * 86400000 - start;
+  const videos = all.map(([t, s, , realId], i) => ({
+    id: realId || "demo" + i,
+    rawTitle: `初星学園「${t}」Official Music Video(ダミー)`,
+    published: new Date(i === all.length - 1 ? Date.now() - 86400000 / 2 : start + (span * i) / all.length).toISOString(),
+    singerLine: s,
+  }));
+  const cur = {}, prev = {};
+  all.forEach(([, , views], i) => {
+    const id = videos[i].id;
+    cur[id] = views;
+    if (i !== all.length - 1) prev[id] = views - Math.round(views * (0.0015 + ((i * 37) % 11) / 1000));
+  });
+  const today = new Date();
+  const yest = new Date(today.getTime() - 86400000);
+  const d = (x) => x.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  return {
+    videos,
+    updatedAt: today.toISOString(),
+    snapshots: [{ date: d(yest), at: yest.toISOString(), views: prev }, { date: d(today), at: today.toISOString(), views: cur }],
+  };
+}
+
+async function load() {
+  let data;
+  if (DEMO) {
+    data = demoData();
+    showStatus(msg("ダミー値で表示中です。", "再生回数・前日比・公開日・一部の曲名は架空の値です。"));
+  } else {
+    try {
+      const res = await fetch(DATA_URL, { cache: "no-cache" });
+      if (!res.ok) throw new Error(res.status === 404 ? "まだ記録がありません。GitHub Actions で「再生回数を記録して公開」を一度実行してください。" : "データを読み込めませんでした(" + res.status + ")。");
+      data = await res.json();
+    } catch (e) {
+      showStatus(msg("表示できません。", e.message || "データを読み込めませんでした。"), true);
+      return;
+    }
+  }
+  apply(data);
+}
+
+function apply(data) {
+  const snaps = data.snapshots || [];
+  const last = snaps[snaps.length - 1] || { views: {} };
+  const prev = snaps.length > 1 ? snaps[snaps.length - 2] : null;
+  state.hasPrev = !!prev;
+  state.prevDate = prev?.date || null;
+  state.updatedAt = last.at || data.updatedAt;
+  state.videos = (data.videos || [])
+    .filter((v) => v.id in last.views)
+    .map((v) => {
+      const views = last.views[v.id];
+      const isNew = !!prev && !(v.id in prev.views);
+      const diff = prev ? (isNew ? views : views - prev.views[v.id]) : null;
+      return enrich({ ...v, views, diff, isNew });
+    });
+
+  $("main").classList.remove("hidden");
+  if (!prev && !DEMO) showStatus(msg("前日比は明日から表示されます。", "記録が2日分そろうと、前の記録との差を表示します。"));
+  renderKpis();
+  renderBars();
+}
+
+// 前日比の表示要素を作る(label を付けると「前日比 +1,234」の形)
+function diffEl(el, diff, opts = {}) {
+  el.textContent = "";
+  el.classList.remove("new");
+  if (!state.hasPrev || diff == null) return el;
+  if (opts.isNew) {
+    el.classList.add("new");
+    el.textContent = "NEW";
+    return el;
+  }
+  if (opts.label) {
+    const l = document.createElement("span"); l.className = "dl"; l.textContent = "前日比";
+    el.append(l);
+  }
+  const sign = diff > 0 ? "+" : diff < 0 ? "−" : "±";
+  const num = document.createElement("span");
+  el.append(num);
+  countUp(num, Math.abs(diff), (n) => sign + fmt.format(n), opts.delay || 0);
+  return el;
+}
+const sumDiff = (list) => list.reduce((s, v) => s + (v.diff || 0), 0);
+
+// ---- アニメーション:数字は0から、棒は幅0から伸ばす ----
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DURATION = 700;
+const ease = (t) => 1 - Math.pow(1 - t, 4); // ease-out(quart)
+function countUp(el, target, format = (n) => fmt.format(n), delay = 0) {
+  if (REDUCED || !target) { el.textContent = format(target); return; }
+  el.textContent = format(0);
+  const run = (t0) => {
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / DURATION);
+      el.textContent = format(Math.round(target * ease(t)));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  setTimeout(() => requestAnimationFrame(run), delay);
+}
+function growBar(el, pct, delay = 0) {
+  el.style.width = "0%";
+  el.style.transitionDelay = delay + "ms";
+  if (REDUCED) { el.style.width = pct + "%"; return; }
+  requestAnimationFrame(() => requestAnimationFrame(() => { el.style.width = pct + "%"; }));
+}
+
+
+function renderKpis() {
+  const vs = state.videos;
+  const total = vs.reduce((s, v) => s + v.views, 0);
+  countUp($("kpiTotal"), total);
+  diffEl($("kpiTotalDiff"), sumDiff(vs), { label: true });
+  const top = vs.reduce((a, b) => (b.views > (a?.views ?? -1) ? b : a), null);
+  if (top) countUp($("kpiTop"), top.views); else $("kpiTop").textContent = "–";
+  $("kpiTopTitle").textContent = top ? top.title : "";
+  $("kpiTopDetail").textContent = top ? top.singer : "";
+  const th = $("kpiTopThumb");
+  th.textContent = "";
+  if (top) {
+    th.append(thumbEl(top));
+    $("kpiTopLink").href = "https://www.youtube.com/watch?v=" + encodeURIComponent(top.id);
+  }
+}
+
+function idolStats() {
+  return IDOLS.map((idol) => {
+    const name = idol.name;
+    const songs = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === name);
+    const total = songs.reduce((s, v) => s + v.views, 0);
+    const top = songs.reduce((a, b) => (b.views > (a?.views ?? -1) ? b : a), null);
+    return { idol, name, count: songs.length, total, diff: sumDiff(songs), avg: songs.length ? total / songs.length : 0, max: top?.views || 0, top };
+  });
+}
+
+function thumbUrl(v) {
+  return v.thumb || "https://i.ytimg.com/vi/" + encodeURIComponent(v.id) + "/mqdefault.jpg";
+}
+function thumbEl(v) {
+  const img = document.createElement("img");
+  img.className = "thumb"; img.loading = "lazy"; img.alt = ""; img.src = thumbUrl(v);
+  img.addEventListener("error", () => {
+    const ph = document.createElement("div"); ph.className = "thumb";
+    img.replaceWith(ph);
+  }, { once: true });
+  return img;
+}
+function renderBars() {
+  const stats = idolStats().sort((a, b) => b.total - a.total);
+  const maxVal = Math.max(1, ...stats.map((s) => s.total));
+  const box = $("bars");
+  box.textContent = "";
+  stats.forEach((s, idx) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "irow";
+    row.setAttribute("aria-label", `${s.name} ソロ曲合計 ${fmt.format(s.total)}回` + (state.hasPrev && s.count ? `、前日比 ${s.diff >= 0 ? "+" : "−"}${fmt.format(Math.abs(s.diff))}` : "") + "。タップで曲ごとの回数");
+
+    const col = document.createElement("div");
+    col.className = "ibar-col";
+    const name = document.createElement("div");
+    name.className = "iname"; name.textContent = s.name;
+    const track = document.createElement("div");
+    track.className = "itrack";
+    if (s.total > 0) {
+      const fill = document.createElement("div");
+      fill.className = "ifill";
+      fill.style.background = s.idol.color;
+      growBar(fill, (s.total / maxVal) * 100, idx * 40);
+      track.append(fill);
+    }
+    const val = document.createElement("div");
+    val.className = "ival";
+    if (s.count) countUp(val, s.total, undefined, idx * 40); else val.textContent = "-";
+    const dv = document.createElement("div");
+    dv.className = "diff";
+    if (s.count) diffEl(dv, s.diff, { delay: idx * 40 });
+    col.append(name, track, val, dv);
+    row.append(col);
+    row.addEventListener("click", () => openDetail(s.idol));
+    box.append(row);
+  });
+}
+
+function songRow(v, color, maxViews, idx = 0) {
+  const a = document.createElement("a");
+  a.className = "song-row";
+  a.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(v.id);
+  a.target = "_blank"; a.rel = "noopener";
+  const info = document.createElement("div");
+  const t = document.createElement("div"); t.className = "s-title"; t.textContent = v.title;
+  const m = document.createElement("div"); m.className = "s-meta";
+  m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (v.kind === "group" ? " · " + v.singer : "");
+  const bar = document.createElement("div"); bar.className = "s-bar";
+  bar.style.background = color; growBar(bar, Math.max(1, (v.views / maxViews) * 100), idx * 40);
+  const n = document.createElement("div"); n.className = "s-views";
+  const nn = document.createElement("span"); n.append(nn); countUp(nn, v.views, undefined, idx * 40);
+  const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, v.diff, { isNew: v.isNew, delay: idx * 40 });
+  n.append(nd);
+  info.append(t, m, bar, n);
+  a.append(thumbEl(v), info);
+  return a;
+}
+
+function openDetail(idol) {
+  const solo = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === idol.name).sort((a, b) => b.views - a.views);
+  const group = state.videos.filter((v) => v.kind === "group" && v.idols.includes(idol.name)).sort((a, b) => b.views - a.views);
+  const total = solo.reduce((s, v) => s + v.views, 0);
+  const maxViews = Math.max(1, ...solo.map((v) => v.views), ...group.map((v) => v.views));
+
+  $("detailName").textContent = idol.name;
+  if (solo.length) countUp($("detailTotal"), total); else $("detailTotal").textContent = "-";
+  diffEl($("detailDiff"), solo.length ? sumDiff(solo) : null);
+
+  const body = $("detailBody");
+  body.textContent = "";
+  let rowIdx = 0;
+  const sec = (label, list) => {
+    const h = document.createElement("div"); h.className = "d-section"; h.textContent = label;
+    body.append(h);
+    if (!list.length) {
+      const e = document.createElement("div"); e.className = "d-empty"; e.textContent = "該当する曲はありません";
+      body.append(e);
+    }
+    list.forEach((v) => body.append(songRow(v, idol.color, maxViews, rowIdx++)));
+  };
+  sec("ソロ曲", solo);
+  if (group.length) sec("参加しているユニット・全体曲", group);
+
+  const dlg = $("detail");
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  body.scrollTop = 0;
+}
+
+// ---- イベント ----
+const dlg = $("detail");
+$("detailClose").addEventListener("click", () => dlg.close());
+dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+load();
+</script>
+</body>
+</html>
