@@ -1,9 +1,11 @@
 // 初星学園の楽曲MVと音源(Topic チャンネル)の再生回数を取得して記録する
 // - data/state.json:取得に使う内部の記録(直近の日ごとの記録・検索結果のキャッシュ)。ページは読まない
-// - data/data.json:ページが読むファイル。動画ごとの合計回数とその日の回数だけにして軽く保つ
+// - data/data.json:ページが読むファイル。曲ごとの曲名・歌唱アイドルと、動画ごとの合計回数・その日の回数だけにして軽く保つ
+//   (作り方は scripts/build-site.mjs、曲のまとめ方と曲名・歌唱アイドルの読み取りは scripts/songs.mjs)
 // - data/daily/:日ごとの記録をずっと残す(あとで推移のグラフを作るため)
 // 実行: YT_API_KEY=xxxx node scripts/fetch.mjs
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readState, writeState, buildSite, writeSite } from "./build-site.mjs";
 
 const API_KEY = process.env.YT_API_KEY;
 const MV_PLAYLIST_ID = "UU2dXx-3RXeeP8hA5AGt8vuw"; // 初星学園チャンネルのアップロード一覧
@@ -21,8 +23,6 @@ const SHORTS_TITLE = /#/;
 const INSTRUMENTAL = /instrumental|off\s*vocal|オフボーカル|カラオケ/i;
 // 音源のうち数えない版:別メンバー・ソロなどの ver. 違い、ゲームサイズ、リミックスなど
 const AUDIO_EXCLUDE = /\bver\.|\bversion\b|game\s*size|ゲームサイズ|tv\s*size|short\s*ver|remix|リミックス|\bmix\b/i;
-const DATA_FILE = new URL("../data/data.json", import.meta.url); // ページが読む
-const STATE_FILE = new URL("../data/state.json", import.meta.url); // 取得に使う内部の記録
 // state.json に残す日数。その日の回数の計算に要るのは最新と前日の記録だけ(古い日の記録は data/daily/ に残る)
 const KEEP_DAYS = 3;
 // 日ごとの記録の置き場所。月ごとのファイル(YYYY-MM.json)と、動画の情報(videos.json)
@@ -92,12 +92,7 @@ for (const it of await playlistItems(MV_PLAYLIST_ID)) {
 // 曲名と概要欄は videos.list でまとめて取り直す(検索結果の概要欄は途中で切れているため)
 let data = { videos: [], snapshots: [] };
 // 内部の記録を読む。まだ無ければ、以前の形式の data.json(記録も入っていた)から引き継ぐ
-try { data = JSON.parse(await readFile(STATE_FILE, "utf8")); } catch {
-  try {
-    const old = JSON.parse(await readFile(DATA_FILE, "utf8"));
-    if (Array.isArray(old.snapshots)) data = old;
-  } catch {}
-}
+data = await readState();
 const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
 async function audioIdsFromPlaylists(channelId) {
@@ -235,24 +230,10 @@ data.videos = listed;
 data.updatedAt = now.toISOString();
 
 await mkdir(new URL("../data/", import.meta.url), { recursive: true });
-await writeFile(STATE_FILE, JSON.stringify(data, null, 0).replace(/\},\{/g, "},\n{") + "\n");
+await writeState(data);
 
-// ページが読むファイル:動画ごとに合計回数(views)とその日の回数(diff)だけを載せる
-// その日の回数 = 前日の最後の記録からの増加(毎時更新なので当日0時ごろからの増加)
-const last = data.snapshots.at(-1);
-const prev = [...data.snapshots].reverse().find((s) => s.date < last.date) || null;
-const site = {
-  updatedAt: last.at,
-  prevDate: prev?.date || null, // null のときは前日の記録がなく、その日の回数はまだ出せない
-  videos: listed.filter((v) => v.id in last.views).map((v) => {
-    const views = last.views[v.id];
-    // 前日の記録にない動画:前日の記録より後に公開された新曲なら全回数をその日の回数にして「NEW」、
-    // 記録を取り始めたばかりの古い動画(音源を追加した初日など)は増加がわからないので出さない
-    const missing = !!prev && !(v.id in prev.views);
-    const isNew = missing && !!v.published && v.published >= prev.at;
-    const diff = !prev ? null : missing ? (isNew ? views : null) : views - prev.views[v.id];
-    return { ...v, views, ...(diff != null ? { diff } : {}), ...(isNew ? { isNew } : {}) };
-  }),
-};
-await writeFile(DATA_FILE, JSON.stringify(site, null, 0).replace(/\},\{/g, "},\n{") + "\n");
+// ページが読むファイル(曲ごとにまとめ、合計回数とその日の回数だけを載せる)
+const site = buildSite(data);
+const bytes = await writeSite(site);
+console.log(`data.json: ${site.songs.length}曲、${bytes} バイト`);
 console.log(`${date}: ${listed.length}本を記録しました(記録 ${data.snapshots.length}日分)`);

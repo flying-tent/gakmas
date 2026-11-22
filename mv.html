@@ -398,21 +398,10 @@ const ROMAJI = {
   "花海佑芽": ["ume", "hanami"], "秦谷美鈴": ["misuzu", "hataya"], "十王星南": ["sena", "juo"],
   "雨夜燕": ["tsubame", "amaya"], "氷渡香名江": ["kanae", "hiwatari"],
 };
-// 一覧にない名前でも、歌唱が「名前(CV.声優)」の1人だけならソロ曲として自動で追加する(色は灰色)
+// 一覧にない名前のアイドル(データに出てきたら自動で追加する)の色
 const UNKNOWN_COLOR = "#A3A3A3";
-const IDOL_NAMES = IDOLS.map((i) => i.name);
-
-// 自動判定がずれた動画の手動修正: { "動画ID": ["アイドル名", ...] }
-// 1人ならソロ、2人以上(または空配列)ならユニット・全体曲として扱う
-const OVERRIDES = {
-  // "xxxxxxxxxxx": ["花海咲季"],
-};
-
-// 曲名の手動修正: { "動画ID": "曲名" }
-const TITLE_OVERRIDES = {};
-// MV・音源・インストは曲名で1曲にまとめる。曲名が食い違って別の曲になったときの手動修正:
-// { "まとめ先の曲名": ["別の曲名として出ている書き方", ...] }
-const SONG_ALIASES = {};
+// 曲のまとめ方・曲名と歌唱アイドルの読み取り・その手動修正(OVERRIDES など)は scripts/songs.mjs にある。
+// ページは取得のときに作られた data/data.json を読むだけ
 // ================================================
 
 // 曲名の読み(検索用): { "曲名": "よみ" または ["よみ", ...] }
@@ -455,71 +444,10 @@ const SONG_READINGS = {
   "雪解けに": "ゆきどけに",
 };
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", query: "", mvOnly: false, rawVideos: [] };
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", query: "", mvOnly: false, songs: [] };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
-function detectIdols(singerLine) {
-  const norm = (singerLine || "").replace(/[\s\u3000]/g, "");
-  const hits = IDOL_NAMES.filter((n) => norm.includes(n));
-  if (hits.length) return hits;
-  // ローマ字表記:声優名(CV.〜)を除いた部分で「名 姓」か「姓 名」を探す
-  const roman = (singerLine || "").replace(/[（(]\s*(?:CV|ＣＶ)[^）)]*[）)]/gi, " ").toLowerCase().replace(/[^a-z]+/g, " ");
-  const padded = ` ${roman.trim()} `;
-  const romanHits = Object.entries(ROMAJI)
-    .filter(([, [g, f]]) => padded.includes(` ${g} ${f} `) || padded.includes(` ${f} ${g} `))
-    .map(([n]) => n);
-  if (romanHits.length) return romanHits;
-  const cv = singerLine.match(/(?:CV|ＣＶ)/g) || [];
-  const m = singerLine.match(/^([^（(、,・]+?)\s*[（(]\s*(?:CV|ＣＶ)/);
-  if (cv.length === 1 && m && /[^\x00-\x7F]/.test(m[1])) {
-    const name = m[1].replace(/[\s\u3000]/g, "");
-    if (!IDOL_NAMES.includes(name)) { IDOLS.push({ name, color: UNKNOWN_COLOR }); IDOL_NAMES.push(name); }
-    return [name];
-  }
-  return [];
-}
-
-// 音源の曲名から「(Instrumental)」などを外す
-function audioTitle(raw) {
-  return raw.replace(/\s*[-–—]?\s*[(（\[]?\s*(instrumental|off\s*vocal|オフボーカル|カラオケ)\s*[)）\]]?\s*$/i, "").trim();
-}
-// 1曲にまとめるための曲名の比べ方(全角半角・大文字小文字・空白の違いを無視)
-const normTitle = (t) => t.normalize("NFKC").toLowerCase().replace(/[\s\u3000「」『』"“”]/g, "");
-function songKey(title) {
-  const k = normTitle(title);
-  for (const [to, list] of Object.entries(SONG_ALIASES)) {
-    const t = normTitle(to);
-    if (k === t || list.some((a) => normTitle(a) === k)) return t;
-  }
-  return k;
-}
-
-function cleanTitle(raw) {
-  const m = raw.match(/「(.+?)」/);
-  return m ? m[1] : raw.replace(/Official Music Video.*$/i, "").replace(/^初星学園\s*/, "").trim();
-}
-
-// 表示用の歌唱者名。「(CV.声優)」を外す。声優表記があってアイドル名が読めた曲は、名前を「・」でつなぐ
-function singerLabel(line, idols) {
-  if (!line) return idols.length ? idols.join("・") : "(歌唱情報なし)";
-  // 声優表記や「初星学園 (…)」の書き方は外し、アイドル名を「・」でつなぐ
-  if (idols.length) return idols.join("・");
-  // 音源の概要欄は「Hatsuboshi Gakuen、作曲者…」のように作家名も並ぶので、アイドル名が読めなければ「初星学園」とだけ出す
-  if (/hatsuboshi\s*gakuen/i.test(line)) return "初星学園";
-  return line.replace(/\s*[（(]\s*(?:CV|ＣＶ)[^）)]*[）)]/g, "").replace(/^初星学園\s*[（(]\s*(.+?)\s*[）)]$/, "$1").trim();
-}
-
-function enrich(v) {
-  const idols = OVERRIDES[v.id] || detectIdols(v.singerLine);
-  return {
-    ...v,
-    title: TITLE_OVERRIDES[v.id] || cleanTitle(v.rawTitle),
-    idols,
-    kind: idols.length === 1 ? "solo" : "group",
-    singer: singerLabel(v.singerLine, idols),
-  };
-}
 
 function showStatus(parts, isError) {
   const el = $("status");
@@ -560,44 +488,19 @@ function demoData() {
   const all = [...solo, ...group];
   const start = new Date("2024-05-01").getTime();
   const span = Date.now() - 30 * 86400000 - start;
-  const videos = all.map(([t, s, , realId], i) => ({
-    id: realId || "demo" + i,
-    rawTitle: `初星学園「${t}」Official Music Video(ダミー)`,
-    published: new Date(i === all.length - 1 ? Date.now() - 86400000 / 2 : start + (span * i) / all.length).toISOString(),
-    singerLine: s,
-  }));
-  const cur = {}, prev = {};
-  all.forEach(([, , views], i) => {
-    const id = videos[i].id;
-    cur[id] = views;
-    if (i !== all.length - 1) prev[id] = views - Math.round(views * (0.0015 + ((i * 37) % 11) / 1000));
+  const d = (x) => new Date(x).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const songs = all.map(([t, s, views, realId], i) => {
+    const latest = i === all.length - 1; // いちばん最後の曲は今日公開の新曲にする
+    const idols = s.match(/[（(](.+)[）)]/)?.[1].split("・") || (s === "初星学園" ? [] : [s]);
+    return {
+      title: t, idols, ...(s === "初星学園" ? { singer: s } : {}),
+      videos: [{
+        id: realId || "demo" + i, type: "mv", date: d(latest ? Date.now() : start + (span * i) / all.length), views,
+        diff: latest ? views : Math.round(views * (0.0015 + ((i * 37) % 11) / 1000)), ...(latest ? { isNew: true } : {}),
+      }],
+    };
   });
-  const today = new Date();
-  const yest = new Date(today.getTime() - 86400000);
-  const d = (x) => x.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-  return {
-    videos,
-    updatedAt: today.toISOString(),
-    snapshots: [{ date: d(yest), at: yest.toISOString(), views: prev }, { date: d(today), at: today.toISOString(), views: cur }],
-  };
-}
-
-// 以前の形式(snapshots 入り)を今の形にする。計算は scripts/fetch.mjs と同じ
-function fromSnapshots(data) {
-  const snaps = data.snapshots;
-  const last = snaps[snaps.length - 1] || { views: {} };
-  const prev = [...snaps].reverse().find((s) => s.date < (last.date || "")) || null;
-  return {
-    updatedAt: last.at || data.updatedAt,
-    prevDate: prev?.date || null,
-    videos: (data.videos || []).filter((v) => v.id in last.views).map((v) => {
-      const views = last.views[v.id];
-      const missing = !!prev && !(v.id in prev.views);
-      const isNew = missing && !!v.published && v.published >= prev.at;
-      const diff = !prev ? null : missing ? (isNew ? views : null) : views - prev.views[v.id];
-      return { ...v, views, diff, isNew };
-    }),
-  };
+  return { updatedAt: new Date().toISOString(), prevDate: d(Date.now() - 86400000), songs };
 }
 
 async function load() {
@@ -619,65 +522,52 @@ async function load() {
 }
 
 // MV・歌入り音源・インストを曲名で1曲にまとめ、再生回数と前日比を合計する
-// 代表(サムネイル・リンク・曲名)は MV → 歌入り音源 → インストの順で選ぶ
-function groupSongs(videos) {
-  const rankOf = (v) => (v.source === "audio" ? (v.instrumental ? 2 : 1) : 0);
-  const groups = new Map();
-  for (const v of videos) {
-    const title = TITLE_OVERRIDES[v.id] || (v.source === "audio" ? audioTitle(v.rawTitle) : cleanTitle(v.rawTitle));
-    const key = songKey(title);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ ...v, title });
-  }
-  return [...groups.values()].map((members) => {
-    members.sort((a, b) => rankOf(a) - rankOf(b));
-    const main = members[0];
-    const withSinger = members.find((m) => m.singerLine) || main;
-    const hasDiff = members.some((m) => m.diff != null);
-    const song = {
-      id: main.id,
-      rawTitle: main.rawTitle,
-      published: members.map((m) => m.published).sort()[0],
-      singerLine: withSinger.singerLine,
-      views: members.reduce((s, m) => s + m.views, 0),
-      diff: hasDiff ? members.reduce((s, m) => s + (m.diff || 0), 0) : null,
-      isNew: members.every((m) => m.isNew),
-      // 動画一覧(曲をタップしたとき)用に、動画ごとの再生回数と前日比も残す
-      members: members.map((m) => ({
-        id: m.id, source: m.source || "mv", instrumental: !!m.instrumental,
-        published: m.published, views: m.views, diff: m.diff, isNew: m.isNew,
-      })),
-    };
-    const e = enrich(song);
-    e.title = TITLE_OVERRIDES[main.id] || main.title;
-    // OVERRIDES(歌唱の手動修正)はまとめたどの動画IDに書いてもよい
-    const ov = members.map((m) => OVERRIDES[m.id]).find(Boolean);
-    if (ov) { e.idols = ov; e.kind = ov.length === 1 ? "solo" : "group"; e.singer = singerLabel(e.singerLine, ov); }
-    return e;
-  });
+// data/data.json の1曲から、表示に使う曲の情報を作る(mvOnly なら MV だけで集計し、MV がなければ null)
+// 曲の動画は MV → 歌入り音源 → インストの順に並んでいて、先頭がサムネイル・リンク・曲名の代表
+function buildSong(s, mvOnly) {
+  const vids = mvOnly ? s.videos.filter((v) => v.type === "mv") : s.videos;
+  if (!vids.length) return null;
+  const members = vids.map((v) => ({
+    id: v.id, source: v.type === "mv" ? "mv" : "audio", instrumental: v.type === "inst",
+    published: v.date, views: v.views, diff: v.diff ?? null, isNew: !!v.isNew,
+  }));
+  const hasDiff = members.some((m) => m.diff != null);
+  return {
+    id: members[0].id,
+    title: s.title,
+    idols: s.idols,
+    kind: s.idols.length === 1 ? "solo" : "group",
+    singer: s.singer ?? s.idols.join("・"),
+    published: members.map((m) => m.published).sort()[0],
+    views: members.reduce((n, m) => n + m.views, 0),
+    diff: hasDiff ? members.reduce((n, m) => n + (m.diff || 0), 0) : null,
+    isNew: members.every((m) => m.isNew),
+    members, // 動画一覧(曲をタップしたとき)用
+  };
 }
 
 // 「MVだけで集計」がオンなら MV だけで曲をまとめる(MVのない曲はランキングから外れる)
 // 上の数字・曲・アイドル・動画一覧のすべてがこの集計を使う
 function regroup() {
-  const list = state.mvOnly ? state.rawVideos.filter((v) => (v.source || "mv") === "mv") : state.rawVideos;
-  state.videos = groupSongs(list);
+  state.videos = state.songs.map((s) => buildSong(s, state.mvOnly)).filter(Boolean);
 }
 // 設定はこのブラウザに覚えておく(使えない環境では毎回オフから)
 const MV_ONLY_KEY = "gakmas.mvOnly";
 function loadMvOnly() { try { return localStorage.getItem(MV_ONLY_KEY) === "1"; } catch { return false; } }
 function saveMvOnly(on) { try { localStorage.setItem(MV_ONLY_KEY, on ? "1" : "0"); } catch {} }
 
-// data/data.json の形:{ updatedAt, prevDate, videos: [{ ...動画の情報, views(合計回数), diff(その日の回数), isNew }] }
-// その日の回数は取得のときに計算済み(前日の最後の記録からの増加)。前日の記録がないときは prevDate が null
+// data/data.json の形(scripts/build-site.mjs が作る):
+// { updatedAt, prevDate, songs: [{ title, idols, singer?, videos: [{ id, type, date, views, diff?, isNew? }] }] }
+// views は合計回数、diff はその日の回数(取得のときに計算済み)。前日の記録がないときは prevDate が null
 function apply(data) {
-  // 以前の形式(日ごとの記録 snapshots が入っている)なら、同じ計算をここでして今の形にそろえる
-  // (サイトの更新直後、次の毎時取得までのあいだ用)
-  if (Array.isArray(data.snapshots)) data = fromSnapshots(data);
   state.hasPrev = !!data.prevDate;
   state.prevDate = data.prevDate || null;
   state.updatedAt = data.updatedAt;
-  state.rawVideos = (data.videos || []).map((v) => ({ ...v, diff: v.diff ?? null, isNew: !!v.isNew }));
+  state.songs = data.songs || [];
+  // 一覧にないアイドルが歌唱に出てきたら、灰色で追加する
+  for (const s of state.songs) for (const name of s.idols) {
+    if (!IDOLS.some((i) => i.name === name)) IDOLS.push({ name, color: UNKNOWN_COLOR });
+  }
   regroup();
 
   $("main").classList.remove("hidden");
@@ -962,6 +852,8 @@ function renderBars() {
   });
 }
 
+// 公開日(YYYY-MM-DD)を「2024/7/31」の形にする
+const fmtDate = (d) => (d ? d.slice(0, 10).split("-").map(Number).join("/") : "");
 const youtubeUrl = (id) => "https://www.youtube.com/watch?v=" + encodeURIComponent(id);
 
 // 曲(または動画)の行。opts.href があれば YouTube へのリンク、なければタップ用のボタン
@@ -976,12 +868,12 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
     // 動画一覧では、種類ラベルの右隣に公開日を出す
     t.classList.add("v-head");
     const l = document.createElement("span"); l.className = "v-type"; l.textContent = opts.label;
-    const dt = document.createElement("span"); dt.className = "s-meta"; dt.textContent = new Date(v.published).toLocaleDateString("ja-JP");
+    const dt = document.createElement("span"); dt.className = "s-meta"; dt.textContent = fmtDate(v.published);
     t.append(l, dt);
   } else t.textContent = v.title;
   if (opts.rank) t.append(crownEl(opts.rank));
   const m = document.createElement("div"); m.className = "s-meta";
-  m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (v.kind === "group" || opts.showSinger ? " · " + v.singer : "");
+  m.textContent = fmtDate(v.published) + (v.kind === "group" || opts.showSinger ? " · " + v.singer : "");
   const bar = document.createElement("div"); bar.className = "s-bar";
   bar.style.background = color; growBar(bar, Math.max(1, (metric(v) / maxViews) * 100), idx * 40);
   const n = document.createElement("div"); n.className = "s-views";
@@ -1036,7 +928,7 @@ function openSong(song, opts = {}) {
   });
   const body = $("detailBody");
   body.textContent = "";
-  // 並びは MV → 音源 → インスト(groupSongs で並べた順)
+  // 並びは MV → 音源 → インスト(data.json で並んでいる順)
   const maxViews = Math.max(1, ...song.members.map(metric));
   song.members.forEach((m, i) => {
     const label = TYPE_LABELS[typeOf(m)];
