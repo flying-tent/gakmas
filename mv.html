@@ -172,11 +172,7 @@
   /* PC(900px以上)では左に累計、右にデイリーの表を並べる。「デイリー/累計」の切り替えはPCでは隠す */
   .boards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .board-today { display: none; }
-  .board-head h2 { margin: 4px 0 0; }
-  /* 見出しの下の注記(デイリーの定義・アイドル別の合計範囲) */
-  .board-note:empty { display: none; }
-  .board-head h2:last-child, .board-head:has(.board-note:empty) h2 { margin-bottom: 12px; }
-  .board-note { text-align: center; font-size: 12px; color: var(--text-secondary); margin: 4px 0 12px; line-height: 1.5; white-space: pre-line; text-wrap: balance; }
+  .board-head h2 { margin: 4px 0 12px; }
   @media (min-width: 900px) {
     .boards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
     .board-today { display: block; }
@@ -375,11 +371,11 @@
           <input type="search" id="searchInput" placeholder="曲名・アイドル名" aria-label="曲名・アイドル名で検索" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
           <button type="button" class="search-close hidden" id="searchClose" aria-label="検索語を消す">×</button>
         </div>
-        <button type="button" class="cond-chips" id="cond" aria-controls="settingsPanel"></button>
         <button type="button" class="search-go" id="searchGo">検索</button>
       </div>
       <div class="toolbar" id="toolbar">
         <button type="button" class="settings-btn" id="settingsBtn" aria-expanded="false" aria-controls="settingsPanel"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>表示設定</span></button>
+        <button type="button" class="cond-chips" id="cond" aria-controls="settingsPanel"></button>
       </div>
       <!-- 表示設定ボタンで開閉する設定(期間・表示・MVだけで集計) -->
       <div class="settings" id="settingsPanel">
@@ -403,8 +399,7 @@
         <label class="mv-only">
           <span class="mv-text">
             <span>MVだけで集計</span>
-            <span class="mv-desc">オン:MVのみを集計<br>オフ:MV＋音源(Topic)＋インストを合算</span>
-            <span class="mv-desc">この設定はこのブラウザに保存され、次回も引き継がれます</span>
+            <span class="mv-desc" id="mvDesc"></span>
           </span>
           <input type="checkbox" id="mvOnly" role="switch">
         </label>
@@ -412,11 +407,11 @@
       </div>
       <div class="boards">
         <div class="board" aria-label="累計のランキング">
-          <div class="board-head"><h2>累計</h2><div class="board-note"></div></div>
+          <div class="board-head"><h2>累計</h2></div>
           <div class="ibars" id="bars"></div>
         </div>
         <div class="board board-today" aria-label="デイリーのランキング">
-          <div class="board-head"><h2>デイリー</h2><div class="board-note"></div></div>
+          <div class="board-head"><h2>デイリー</h2></div>
           <div class="ibars" id="barsToday"></div>
         </div>
       </div>
@@ -879,7 +874,7 @@ function renderBars() {
   } else withView(state.view, () => renderBoard($("bars")));
 }
 
-// 今の集計条件を、検索欄の横に短いチップで出す(デイリー/累計・曲/アイドル・全/MV)。
+// 今の集計条件を、表示設定ボタンの横に短いチップで出す(デイリー/累計・曲/アイドル・全/MV)。
 // PCは両方の期間を並べるので期間は出さない。「全」は MV・音源・インストの合算、「MV」は MVのみ
 function renderCond() {
   const chips = [], words = [];
@@ -891,17 +886,12 @@ function renderCond() {
   for (const c of chips) { const e = document.createElement("span"); e.className = "chip"; e.textContent = c; box.append(e); }
   box.setAttribute("aria-label", "今の表示:" + words.join("、") + "。押すと表示設定を開く");
 }
-// ボードの見出しの下の注記。アイドル別のときだけ、合計の範囲を出す
-function boardNote() {
-  return state.unit === "idol" ? "アイドル別はソロ曲のみ合計(ユニット曲・全体曲は含みません)" : "";
-}
 
 function renderBoard(box) {
   box.textContent = "";
   const today = isToday();
   const head = box.closest(".board").querySelector(".board-head");
   head.querySelector("h2").textContent = today ? "デイリー" : "累計";
-  head.querySelector(".board-note").textContent = boardNote();
   if (today && !state.hasPrev) {
     const e = document.createElement("div"); e.className = "today-note"; e.textContent = "デイリーのランキングは明日から表示されます。";
     box.append(e);
@@ -1090,14 +1080,6 @@ function setSettingsOpen(open) {
 const settingsOpen = () => $("settingsBtn").getAttribute("aria-expanded") === "true";
 $("settingsBtn").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
 $("cond").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
-// チップは検索欄の横に出す。狭い画面(600px以下)では検索欄が狭くなりすぎるので、表示設定ボタンの横に移す
-const NARROW = matchMedia("(max-width: 600px)");
-function placeCond() {
-  if (NARROW.matches) $("toolbar").append($("cond"));
-  else $("searchGo").before($("cond"));
-}
-placeCond();
-NARROW.addEventListener("change", placeCond);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && settingsOpen()) { setSettingsOpen(false); $("settingsBtn").focus({ preventScroll: true }); }
 });
@@ -1105,9 +1087,13 @@ document.addEventListener("keydown", (e) => {
 // MVだけで集計
 state.mvOnly = loadMvOnly();
 $("mvOnly").checked = state.mvOnly;
+// トグルの説明は、今選んでいる方だけを出す
+const updateMvDesc = () => { $("mvDesc").textContent = state.mvOnly ? "MVのみを集計" : "MV＋音源(Topic)＋インストを合算"; };
+updateMvDesc();
 $("mvOnly").addEventListener("change", (e) => {
   state.mvOnly = e.target.checked;
   saveMvOnly(state.mvOnly);
+  updateMvDesc();
   regroup();
   renderKpis();
   renderBars();
