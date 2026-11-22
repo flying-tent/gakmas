@@ -145,6 +145,15 @@
   .radio input:checked { background: radial-gradient(circle, var(--radio-dot) 0 4.5px, var(--surface-1) 5px); }
   .radio input:focus { outline: none; }
   .radio input:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+  /* 「MVだけで数える」のオン/オフ */
+  .mv-only { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 8px 12px; min-height: 48px; border-radius: 12px; background: var(--radio-panel); font-size: 15px; font-weight: 500; color: var(--text-primary); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .mv-only input { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 46px; height: 28px; margin: 0; border-radius: 999px; background: var(--radio-ring); cursor: pointer; transition: background .2s; }
+  .mv-only input::before { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
+  .mv-only input:checked { background: var(--radio-dot); }
+  .mv-only input:checked::before { transform: translateX(18px); }
+  .mv-only input:focus { outline: none; }
+  .mv-only input:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .mv-only input, .mv-only input::before { transition: none; } }
   .more { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); font: inherit; font-size: 15px; color: var(--text-secondary); cursor: pointer; }
   .ibars .song-row { padding: 8px 6px; }
   .today-note { text-align: center; color: var(--text-muted); font-size: 14px; padding: 24px 0; }
@@ -228,7 +237,35 @@
   .status.error strong { color: var(--critical); }
   .hidden { display: none !important; }
   /* 曲の検索(切替の下に常に表示) */
-  .search { margin: 0 0 12px; }
+  .search { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+  .search .search-box { flex: 1; min-width: 0; }
+  .settings-btn {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface-1); color: var(--text-secondary); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  /* 設定:検索欄の下に、少し下へずれながら浮かぶカードとして出す。開いた分だけランキングを下げる
+     (高さは grid の 0fr → 1fr で滑らかに変える) */
+  .settings { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .2s ease; }
+  .settings.open { grid-template-rows: 1fr; }
+  /* 影が切れないように左右と下に余白を取る(閉じているときは余白も 0) */
+  .settings-clip { min-height: 0; overflow: hidden; margin: 0 -14px; padding: 0 14px; transition: padding .2s ease; }
+  .settings.open .settings-clip { padding: 0 14px 20px; }
+  .settings-card {
+    padding: 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, .10), 0 1px 4px rgba(0, 0, 0, .06);
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+  }
+  .settings.open .settings-card { opacity: 1; visibility: visible; transform: translateY(0); transition: opacity .2s ease, transform .2s ease, visibility 0s; }
+  .settings .mv-only { margin-bottom: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .settings, .settings-clip, .settings-card, .settings.open .settings-card { transition: none; transform: none; }
+  }
+  .settings-btn svg { width: 20px; height: 20px; display: block; }
+  .settings-btn[aria-expanded="true"] { background: var(--radio-on-bg); color: var(--text-primary); }
+  .settings-btn:focus { outline: none; }
+  .settings-btn:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
   .search-close {
     display: inline-flex; align-items: center; justify-content: center; flex: none;
     width: 36px; height: 36px; padding: 0; border-radius: 50%; color: var(--text-secondary);
@@ -239,7 +276,7 @@
   .search-box > svg { width: 18px; height: 18px; display: block; flex: none; }
   .search-close { border: 0; background: transparent; font-size: 20px; line-height: 1; }
   .search-box {
-    display: flex; align-items: center; gap: 6px; width: 100%; min-height: 42px; padding: 0 2px 0 12px;
+    display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 0 2px 0 12px;
     border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); color: var(--text-muted);
   }
   .search-box:focus-within { border-color: var(--text-muted); }
@@ -283,28 +320,35 @@
     </section>
 
     <section class="idol-card" aria-label="アイドルごとのソロ曲再生回数(タップで曲ごとの回数)">
-      <div class="switches">
-        <fieldset class="radio-group">
-          <legend class="sr-only">期間</legend>
-          <div class="radios">
-            <label class="radio"><input type="radio" name="view" value="today" checked><span>今日</span></label>
-            <label class="radio"><input type="radio" name="view" value="total"><span>累計</span></label>
-          </div>
-        </fieldset>
-        <fieldset class="radio-group">
-          <legend class="sr-only">表示</legend>
-          <div class="radios">
-            <label class="radio"><input type="radio" name="unit" value="song" checked><span>曲</span></label>
-            <label class="radio"><input type="radio" name="unit" value="idol"><span>アイドル</span></label>
-          </div>
-        </fieldset>
-      </div>
       <div class="search" id="search">
         <div class="search-box" id="searchBox" role="search">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
           <input type="search" id="searchInput" placeholder="曲名・アイドル名" aria-label="曲名・アイドル名で検索" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
           <button type="button" class="search-close hidden" id="searchClose" aria-label="検索語を消す">×</button>
         </div>
+        <button type="button" class="settings-btn" id="settingsBtn" aria-label="表示の切り替え" aria-expanded="false" aria-controls="settingsPanel"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 5h17l-6.5 7.6V18l-4 2.2v-7.6z"/></svg></button>
+      </div>
+      <!-- フィルタボタンで開閉する設定(期間・表示・MVだけで数える) -->
+      <div class="settings" id="settingsPanel">
+        <div class="settings-clip"><div class="settings-card">
+        <div class="switches">
+          <fieldset class="radio-group">
+            <legend class="sr-only">期間</legend>
+            <div class="radios">
+              <label class="radio"><input type="radio" name="view" value="today" checked><span>今日</span></label>
+              <label class="radio"><input type="radio" name="view" value="total"><span>累計</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="radio-group">
+            <legend class="sr-only">表示</legend>
+            <div class="radios">
+              <label class="radio"><input type="radio" name="unit" value="song" checked><span>曲</span></label>
+              <label class="radio"><input type="radio" name="unit" value="idol"><span>アイドル</span></label>
+            </div>
+          </fieldset>
+        </div>
+        <label class="mv-only"><span>MVだけで数える</span><input type="checkbox" id="mvOnly" role="switch"></label>
+        </div></div>
       </div>
       <div class="today-note hidden" id="todayNote">今日のランキングは明日から表示されます。</div>
       <div class="ibars" id="bars"></div>
@@ -414,7 +458,7 @@ const SONG_READINGS = {
   "雪解けに": "ゆきどけに",
 };
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false, query: "" };
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false, query: "", mvOnly: false, rawVideos: [] };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
@@ -598,6 +642,17 @@ function groupSongs(videos) {
   });
 }
 
+// 「MVだけで数える」がオンなら MV だけで曲をまとめる(MVのない曲はランキングから外れる)
+// 上の数字・曲・アイドル・動画一覧のすべてがこの集計を使う
+function regroup() {
+  const list = state.mvOnly ? state.rawVideos.filter((v) => (v.source || "mv") === "mv") : state.rawVideos;
+  state.videos = groupSongs(list);
+}
+// 設定はこのブラウザに覚えておく(使えない環境では毎回オフから)
+const MV_ONLY_KEY = "gakmas.mvOnly";
+function loadMvOnly() { try { return localStorage.getItem(MV_ONLY_KEY) === "1"; } catch { return false; } }
+function saveMvOnly(on) { try { localStorage.setItem(MV_ONLY_KEY, on ? "1" : "0"); } catch {} }
+
 function apply(data) {
   const snaps = data.snapshots || [];
   const last = snaps[snaps.length - 1] || { views: {} };
@@ -606,7 +661,7 @@ function apply(data) {
   state.hasPrev = !!prev;
   state.prevDate = prev?.date || null;
   state.updatedAt = last.at || data.updatedAt;
-  state.videos = groupSongs((data.videos || [])
+  state.rawVideos = (data.videos || [])
     .filter((v) => v.id in last.views)
     .map((v) => {
       const views = last.views[v.id];
@@ -616,7 +671,8 @@ function apply(data) {
       const isNew = missing && !!v.published && v.published >= prev.at;
       const diff = !prev ? null : missing ? (isNew ? views : null) : views - prev.views[v.id];
       return { ...v, views, diff, isNew };
-    }));
+    });
+  regroup();
 
   $("main").classList.remove("hidden");
   if (state.updatedAt) {
@@ -680,7 +736,7 @@ function renderKpis() {
   const vs = state.videos;
   const today = isToday();
   const noData = today && !state.hasPrev;
-  $("kpiTotalLabel").textContent = today ? "今日の再生回数" : "総再生回数";
+  $("kpiTotalLabel").textContent = (today ? "今日の再生回数" : "総再生回数") + (state.mvOnly ? "(MVのみ)" : "");
   const total = vs.reduce((s, v) => s + metric(v), 0);
   if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total);
   diffEl($("kpiTotalDiff"), today ? null : sumDiff(vs));
@@ -990,6 +1046,29 @@ $("moreBtn").addEventListener("click", () => {
   state.expanded = true;
   renderBars();
 });
+// フィルタボタン:検索欄の下の設定を開け閉めする(Esc でも閉じる)
+function setSettingsOpen(open) {
+  $("settingsBtn").setAttribute("aria-expanded", String(open));
+  $("settingsPanel").classList.toggle("open", open);
+}
+const settingsOpen = () => $("settingsBtn").getAttribute("aria-expanded") === "true";
+$("settingsBtn").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && settingsOpen()) { setSettingsOpen(false); $("settingsBtn").focus({ preventScroll: true }); }
+});
+
+// MVだけで数える
+state.mvOnly = loadMvOnly();
+$("mvOnly").checked = state.mvOnly;
+$("mvOnly").addEventListener("change", (e) => {
+  state.mvOnly = e.target.checked;
+  saveMvOnly(state.mvOnly);
+  state.expanded = false;
+  regroup();
+  renderKpis();
+  renderBars();
+});
+
 // 検索:入力欄でエンターを押したときに、今のタブ(曲/アイドル)の一覧へ反映する
 // タブを切り替えても検索語はそのまま、切り替えた先の一覧にも効く
 function applySearch() {
