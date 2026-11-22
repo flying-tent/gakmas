@@ -202,6 +202,8 @@
   button.song-row:focus { outline: none; }
   button.song-row:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
   /* 動画一覧の種類ラベル(MV/音源/インスト) */
+  .v-head { display: flex; align-items: center; gap: 8px; }
+  .v-head .s-meta { margin-top: 0; font-weight: 400; }
   .v-type { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1; padding: 4px 8px; border-radius: 999px; background: var(--grid); color: var(--text-primary); }
   .song-row .thumb { width: 136px; }
   .s-title { font-weight: 700; font-size: 14px; line-height: 1.35; }
@@ -753,19 +755,24 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   const info = document.createElement("div");
   const t = document.createElement("div"); t.className = "s-title";
   if (opts.label) {
+    // 動画一覧では、種類ラベルの右隣に公開日を出す
+    t.classList.add("v-head");
     const l = document.createElement("span"); l.className = "v-type"; l.textContent = opts.label;
-    t.append(l);
+    const dt = document.createElement("span"); dt.className = "s-meta"; dt.textContent = new Date(v.published).toLocaleDateString("ja-JP");
+    t.append(l, dt);
   } else t.textContent = v.title;
   if (opts.rank) t.append(crownEl(opts.rank));
   const m = document.createElement("div"); m.className = "s-meta";
-  m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (!opts.label && (v.kind === "group" || opts.showSinger) ? " · " + v.singer : "");
+  m.textContent = new Date(v.published).toLocaleDateString("ja-JP") + (v.kind === "group" || opts.showSinger ? " · " + v.singer : "");
   const bar = document.createElement("div"); bar.className = "s-bar";
   bar.style.background = color; growBar(bar, Math.max(1, (metric(v) / maxViews) * 100), idx * 40);
   const n = document.createElement("div"); n.className = "s-views";
   const nn = document.createElement("span"); n.append(nn); countUp(nn, metric(v), undefined, idx * 40);
   const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, isToday() && !v.isNew ? null : v.diff, { isNew: v.isNew, delay: idx * 40 });
   n.append(nd);
-  info.append(t, m, bar, n);
+  info.append(t);
+  if (!opts.label) info.append(m);
+  info.append(bar, n);
   a.append(thumbEl(v), info);
   return a;
 }
