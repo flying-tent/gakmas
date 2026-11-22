@@ -96,9 +96,19 @@
   .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text-primary); font-weight: 600; }
 
   /* KPI */
-  .kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-bottom: 16px; }
-  #kpiTotal { text-align: right; }
-  #kpiTop, #kpiTopTitle, #kpiTopDetail { text-align: right; }
+  .kpi-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }
+  .kpis-today { display: none; }
+  /* PCは左右に累計とデイリーの2組。1組は上下に積む */
+  @media (min-width: 900px) {
+    .kpi-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+    .kpis { grid-template-columns: minmax(0, 1fr); }
+    .kpis-today { display: grid; }
+    /* デイリーには増減の行がないので、左右のカードの高さを揃えるため行の高さを取っておく */
+    .k-diff { min-height: 1.4em; }
+  }
+  .k-total { text-align: right; }
+  .k-top, .k-title, .k-detail { text-align: right; }
   .kpi-top { display: grid; grid-template-columns: 176px auto minmax(0, 1fr); gap: 12px; align-items: center; text-decoration: none; color: inherit; }
   .crown { width: 34px; height: 26px; align-self: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.15)); }
   .kpi-top:hover { border-color: var(--text-muted); }
@@ -176,6 +186,7 @@
   @media (min-width: 900px) {
     .boards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
     .board-today { display: block; }
+    .board-head { display: none; }
     .period-group { display: none; }
     .switches { grid-template-columns: minmax(0, 1fr); }
   }
@@ -350,19 +361,35 @@
   <div id="status" class="status hidden" role="status"></div>
 
   <main id="main" class="hidden">
-    <section class="kpis" aria-label="概要">
-      <div class="kpi"><div class="label" id="kpiTotalLabel">再生回数（累計）</div><div class="value" id="kpiTotal">–</div><div class="diff" id="kpiTotalDiff"></div></div>
-      <button type="button" class="kpi kpi-top" id="kpiTopBtn" aria-label="最多再生の曲。タップで動画一覧" disabled>
-        <div class="kpi-thumb" id="kpiTopThumb"></div>
+    <!-- 上のパネル。スマホでは今の期間の1組、PC(900px以上)では左に累計・右にデイリーの2組を並べる -->
+    <div class="kpi-cols">
+    <section class="kpis" id="kpisMain" aria-label="概要">
+      <div class="kpi"><div class="label k-label">再生回数（累計）</div><div class="value k-total">–</div><div class="diff k-diff"></div></div>
+      <button type="button" class="kpi kpi-top k-top-btn" aria-label="最多再生の曲。タップで動画一覧" disabled>
+        <div class="kpi-thumb k-thumb"></div>
         <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
         <div class="kpi-top-info">
-          <div class="value" id="kpiTop">–</div>
-          <div class="top-title" id="kpiTopTitle"></div>
-          <div class="detail" id="kpiTopDetail"></div>
+          <div class="value k-top">–</div>
+          <div class="top-title k-title"></div>
+          <div class="detail k-detail"></div>
           <div class="tap-hint">タップで動画一覧</div>
         </div>
       </button>
     </section>
+    <section class="kpis kpis-today" id="kpisToday" aria-label="デイリーの概要">
+      <div class="kpi"><div class="label k-label">再生回数（デイリー）</div><div class="value k-total">–</div><div class="diff k-diff"></div></div>
+      <button type="button" class="kpi kpi-top k-top-btn" aria-label="最多再生の曲。タップで動画一覧" disabled>
+        <div class="kpi-thumb k-thumb"></div>
+        <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
+        <div class="kpi-top-info">
+          <div class="value k-top">–</div>
+          <div class="top-title k-title"></div>
+          <div class="detail k-detail"></div>
+          <div class="tap-hint">タップで動画一覧</div>
+        </div>
+      </button>
+    </section>
+    </div>
 
     <section class="idol-card" aria-label="ランキング">
       <div class="search" id="search">
@@ -688,28 +715,41 @@ function growBar(el, pct, delay = 0) {
 }
 
 
+// 上のパネル。スマホは今の期間の1組、PCは左に累計・右にデイリーの2組(ランキングと同じ並び)
 // 「デイリー」のときは、再生回数も最多再生の曲もデイリー(前日の最後の記録からの増加)で出す
 // 最多再生のカードは、ランキングの曲の行と同じく動画一覧を開く
-let kpiTop = null;
 function renderKpis() {
-  const vs = state.videos;
-  const today = isToday();
-  const noData = today && !state.hasPrev;
-  $("kpiTotalLabel").textContent = today ? "再生回数（デイリー）" : "再生回数（累計）";
-  const total = vs.reduce((s, v) => s + metric(v), 0);
-  if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total);
-  diffEl($("kpiTotalDiff"), today ? null : sumDiff(vs));
-  const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
-  if (top) countUp($("kpiTop"), metric(top)); else $("kpiTop").textContent = "–";
-  $("kpiTopTitle").textContent = top ? top.title : "";
-  $("kpiTopDetail").textContent = top ? top.singer : "";
-  const th = $("kpiTopThumb");
-  th.textContent = "";
-  kpiTop = top;
-  $("kpiTopBtn").disabled = !top;
-  $("kpiTopBtn").setAttribute("aria-label", top ? `最多再生の曲 ${top.title}(${top.singer})${today ? " デイリー " : " 累計 "}${fmt.format(metric(top))}回。タップで動画一覧` : "最多再生の曲");
-  if (top) th.append(thumbEl(top));
+  if (isWide()) {
+    renderKpiSet($("kpisMain"), "total");
+    renderKpiSet($("kpisToday"), "today");
+  } else renderKpiSet($("kpisMain"), state.view);
 }
+function renderKpiSet(root, view) {
+  const q = (c) => root.querySelector(c);
+  withView(view, () => {
+    const vs = state.videos;
+    const today = isToday();
+    const noData = today && !state.hasPrev;
+    q(".k-label").textContent = today ? "再生回数（デイリー）" : "再生回数（累計）";
+    const total = vs.reduce((s, v) => s + metric(v), 0);
+    if (noData) q(".k-total").textContent = "–"; else countUp(q(".k-total"), total);
+    diffEl(q(".k-diff"), today ? null : sumDiff(vs));
+    const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
+    if (top) countUp(q(".k-top"), metric(top)); else q(".k-top").textContent = "–";
+    q(".k-title").textContent = top ? top.title : "";
+    q(".k-detail").textContent = top ? top.singer : "";
+    const th = q(".k-thumb");
+    th.textContent = "";
+    const btn = q(".k-top-btn");
+    btn.disabled = !top;
+    btn.setAttribute("aria-label", top ? `最多再生の曲 ${top.title}(${top.singer})${today ? " デイリー " : " 累計 "}${fmt.format(metric(top))}回。タップで動画一覧` : "最多再生の曲");
+    if (top) th.append(thumbEl(top));
+    // 押したとき、そのパネルの期間のまま動画一覧を開くために覚えておく
+    root.dataset.view = view;
+    kpiTops.set(root, top);
+  });
+}
+const kpiTops = new WeakMap();
 
 function idolStats() {
   return IDOLS.map((idol) => {
@@ -1100,7 +1140,12 @@ $("mvOnly").addEventListener("change", (e) => {
 });
 
 // 上の最多再生のカード:ランキングの曲の行と同じく、その曲の動画一覧を開く(YouTube へは一覧の行から)
-$("kpiTopBtn").addEventListener("click", () => { if (kpiTop) openIn(currentView(), () => openSong(kpiTop))(); });
+for (const root of [$("kpisMain"), $("kpisToday")]) {
+  root.querySelector(".k-top-btn").addEventListener("click", () => {
+    const top = kpiTops.get(root);
+    if (top) openIn(root.dataset.view, () => openSong(top))();
+  });
+}
 
 // 検索:「検索」ボタンを押したときか、入力欄でエンターを押したときに、今のタブ(曲/アイドル)の一覧へ反映する
 // 入力しただけでは一覧は変えない
