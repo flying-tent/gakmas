@@ -582,6 +582,24 @@ function demoData() {
   };
 }
 
+// 以前の形式(snapshots 入り)を今の形にする。計算は scripts/fetch.mjs と同じ
+function fromSnapshots(data) {
+  const snaps = data.snapshots;
+  const last = snaps[snaps.length - 1] || { views: {} };
+  const prev = [...snaps].reverse().find((s) => s.date < (last.date || "")) || null;
+  return {
+    updatedAt: last.at || data.updatedAt,
+    prevDate: prev?.date || null,
+    videos: (data.videos || []).filter((v) => v.id in last.views).map((v) => {
+      const views = last.views[v.id];
+      const missing = !!prev && !(v.id in prev.views);
+      const isNew = missing && !!v.published && v.published >= prev.at;
+      const diff = !prev ? null : missing ? (isNew ? views : null) : views - prev.views[v.id];
+      return { ...v, views, diff, isNew };
+    }),
+  };
+}
+
 async function load() {
   let data;
   if (DEMO) {
@@ -650,25 +668,16 @@ const MV_ONLY_KEY = "gakmas.mvOnly";
 function loadMvOnly() { try { return localStorage.getItem(MV_ONLY_KEY) === "1"; } catch { return false; } }
 function saveMvOnly(on) { try { localStorage.setItem(MV_ONLY_KEY, on ? "1" : "0"); } catch {} }
 
+// data/data.json の形:{ updatedAt, prevDate, videos: [{ ...動画の情報, views(合計回数), diff(その日の回数), isNew }] }
+// その日の回数は取得のときに計算済み(前日の最後の記録からの増加)。前日の記録がないときは prevDate が null
 function apply(data) {
-  const snaps = data.snapshots || [];
-  const last = snaps[snaps.length - 1] || { views: {} };
-  // 前日比 = 当日0時からの増加。基準は前日の最後の記録(毎時更新なので前日23時台の値)
-  const prev = [...snaps].reverse().find((s) => s.date < (last.date || "")) || null;
-  state.hasPrev = !!prev;
-  state.prevDate = prev?.date || null;
-  state.updatedAt = last.at || data.updatedAt;
-  state.rawVideos = (data.videos || [])
-    .filter((v) => v.id in last.views)
-    .map((v) => {
-      const views = last.views[v.id];
-      // 前の記録にない動画:前の記録より後に公開された本当の新曲なら全回数を今日の増加に入れて「NEW」、
-      // 記録を取り始めたばかりの古い動画(音源を追加した初日など)は増加がわからないので数えない
-      const missing = !!prev && !(v.id in prev.views);
-      const isNew = missing && !!v.published && v.published >= prev.at;
-      const diff = !prev ? null : missing ? (isNew ? views : null) : views - prev.views[v.id];
-      return { ...v, views, diff, isNew };
-    });
+  // 以前の形式(日ごとの記録 snapshots が入っている)なら、同じ計算をここでして今の形にそろえる
+  // (サイトの更新直後、次の毎時取得までのあいだ用)
+  if (Array.isArray(data.snapshots)) data = fromSnapshots(data);
+  state.hasPrev = !!data.prevDate;
+  state.prevDate = data.prevDate || null;
+  state.updatedAt = data.updatedAt;
+  state.rawVideos = (data.videos || []).map((v) => ({ ...v, diff: v.diff ?? null, isNew: !!v.isNew }));
   regroup();
 
   $("main").classList.remove("hidden");
@@ -676,7 +685,7 @@ function apply(data) {
     const t = new Date(state.updatedAt);
     $("updated").textContent = "最終更新 " + t.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
-  if (!prev && !DEMO) showStatus(msg("前日比は明日から表示されます。", "日付が変わると、その日の0時からの増加を表示します。"));
+  if (!state.hasPrev && !DEMO) showStatus(msg("前日比は明日から表示されます。", "日付が変わると、その日の0時からの増加を表示します。"));
   renderKpis();
   renderBars();
 }

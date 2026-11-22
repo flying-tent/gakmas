@@ -3,12 +3,13 @@
 
 ## MV再生回数(mv.html)
 
-初星学園チャンネルの楽曲MVの再生回数を GitHub Actions(`.github/workflows/update.yml`)が毎時17分ごろに取得し、`data/data.json` に日ごとの記録として上書き保存します。`mv.html` はそのファイルを読み、前日の最後の記録との差(当日0時からの増加)を前日比として表示します。
+初星学園チャンネルの楽曲MVと音源の再生回数を GitHub Actions(`.github/workflows/update.yml`)が毎時7分ごろに取得し、次のファイルに保存します。
 
-`data/data.json` に残すのは直近3日分だけです(ページの読み込みを軽く保つため)。日ごとの記録はすべて `data/daily/` に残し、あとで推移のグラフなどに使います。
-- `data/daily/YYYY-MM.json`:その月の日ごとの記録。1日1行で `{ date, at, views: { 動画ID: 再生回数 } }`。その日の値は毎時上書きされ、日付(日本時間)が変わる直前の値が残る
+- `data/data.json`:ページ(`mv.html`)が読むファイル。表示を軽く保つため、`{ updatedAt, prevDate, videos }` だけを載せる。`videos` は動画ごとの情報と、合計回数(`views`)・その日の回数(`diff`、前日の最後の記録からの増加=当日0時ごろからの増加)・新曲の印(`isNew`)。前日の記録がないときは `prevDate` が `null` で、`diff` は付かない
+- `data/state.json`:取得に使う内部の記録(直近3日分の日ごとの記録と、音源の検索結果のキャッシュ)。ページは読まない
+- `data/daily/YYYY-MM.json`:その月の日ごとの記録をずっと残す(あとで推移のグラフなどに使う)。1日1行で `{ date, at, views: { 動画ID: 再生回数 } }`。その日の値は毎時上書きされ、日付(日本時間)が変わる直前の値が残る
 - `data/daily/videos.json`:動画IDごとの情報(曲名・種類・公開日・最後に一覧にあった日)。一覧から消えた動画も残す
-- ページは最初の表示でこれらを読まないので、記録が増えても表示は遅くならない
+- ページは最初の表示で `data/data.json` だけを読むので、記録が増えても表示は遅くならない
 
 - APIキー:リポジトリの Secrets に `YT_API_KEY` として登録
 - 公開:Settings → Pages → Source を「GitHub Actions」にする(このワークフローがサイト全体を公開します)

@@ -49,7 +49,7 @@ jobs:
         if: inputs.dry_run
         run: |
           echo "=====DRY-RUN-DATA-BEGIN====="
-          node -e 'const d=require("./data/data.json");const l=d.snapshots.at(-1);const p=d.snapshots.at(-2);console.log(JSON.stringify({videos:d.videos,snapshots:[p,l].filter(Boolean)}))'
+          node -e 'const d=require("./data/state.json");const l=d.snapshots.at(-1);const p=d.snapshots.at(-2);console.log(JSON.stringify({videos:d.videos,snapshots:[p,l].filter(Boolean)}))'
           echo "=====DRY-RUN-DATA-END====="
 
       - name: お試し実行の結果を残す
@@ -57,14 +57,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dry-run-data
-          path: data/data.json
+          path: |
+            data/data.json
+            data/state.json
 
       - name: 記録をコミット
         if: github.event_name != 'push' && !inputs.dry_run
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/data.json data/daily
+          git add data/data.json data/state.json data/daily
           if git diff --cached --quiet; then
             echo "変更なし"
           else
