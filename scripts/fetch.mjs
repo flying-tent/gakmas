@@ -1,4 +1,5 @@
 // 初星学園の楽曲MVと音源(Topic チャンネル)の再生回数を取得して data/data.json に記録する
+// あわせて、日ごとの記録を data/daily/ にずっと残す(あとで推移のグラフを作るため)
 // 実行: YT_API_KEY=xxxx node scripts/fetch.mjs
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 
@@ -19,7 +20,11 @@ const INSTRUMENTAL = /instrumental|off\s*vocal|オフボーカル|カラオケ/i
 // 音源のうち数えない版:別メンバー・ソロなどの ver. 違い、ゲームサイズ、リミックスなど
 const AUDIO_EXCLUDE = /\bver\.|\bversion\b|game\s*size|ゲームサイズ|tv\s*size|short\s*ver|remix|リミックス|\bmix\b/i;
 const DATA_FILE = new URL("../data/data.json", import.meta.url);
-const KEEP_DAYS = 400; // 記録を残す日数
+// data.json に残す日数。ページが使うのは最新と前日の記録だけなので、表示を軽く保つため少なくする
+// (古い日の記録は data/daily/ に残る)
+const KEEP_DAYS = 3;
+// 日ごとの記録の置き場所。月ごとのファイル(YYYY-MM.json)と、動画の情報(videos.json)
+const DAILY_DIR = new URL("../data/daily/", import.meta.url);
 
 if (!API_KEY) {
   console.error("環境変数 YT_API_KEY が設定されていません");
@@ -189,6 +194,34 @@ const snapshot = { date, at: now.toISOString(), views };
 data.snapshots = (data.snapshots || []).filter((s) => s.date !== date);
 data.snapshots.push(snapshot);
 data.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+
+// 日ごとの記録を月ごとのファイルに残す。その日の値は毎時上書きされ、日付が変わる直前の値が最後に残る
+// (data.json にあるほかの日の記録もまだ残っていなければ入れる。初回の移し替えを兼ねる)
+async function readJson(url, fallback) {
+  try { return JSON.parse(await readFile(url, "utf8")); } catch { return fallback; }
+}
+await mkdir(DAILY_DIR, { recursive: true });
+const byMonth = {};
+for (const s of data.snapshots) (byMonth[s.date.slice(0, 7)] ||= []).push(s);
+for (const [month, snaps] of Object.entries(byMonth)) {
+  const file = new URL(`${month}.json`, DAILY_DIR);
+  const archive = await readJson(file, { month, days: [] });
+  for (const s of snaps) {
+    // 今日の分はいつも最新の値で上書き。過去の日は、まだ無いときだけ入れる
+    const i = archive.days.findIndex((d) => d.date === s.date);
+    if (i < 0) archive.days.push(s);
+    else if (s.date === date) archive.days[i] = s;
+  }
+  archive.days.sort((a, b) => a.date.localeCompare(b.date));
+  // 1日1行にして、差分を見やすくする
+  await writeFile(file, '{"month":' + JSON.stringify(month) + ',"days":[\n' + archive.days.map((d) => JSON.stringify(d)).join(",\n") + "\n]}\n");
+}
+// 動画の情報(曲名・種類・公開日など)。一覧から消えた動画も、記録の読み解きに要るので消さずに残す
+const videosFile = new URL("videos.json", DAILY_DIR);
+const videoIndex = await readJson(videosFile, {});
+for (const v of listed) videoIndex[v.id] = { ...videoIndex[v.id], ...v, lastSeen: date };
+await writeFile(videosFile, "{\n" + Object.entries(videoIndex).map(([id, v]) => JSON.stringify(id) + ":" + JSON.stringify(v)).join(",\n") + "\n}\n");
+
 data.snapshots = data.snapshots.slice(-KEEP_DAYS);
 data.videos = listed;
 data.updatedAt = now.toISOString();
