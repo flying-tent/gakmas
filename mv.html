@@ -716,6 +716,7 @@ function growBar(el, pct, delay = 0) {
 
 
 // 上のパネル。スマホは今の期間の1組、PCは左に累計・右にデイリーの2組(ランキングと同じ並び)
+// 最多再生のカードは、曲表示ならいちばん再生された曲、アイドル表示ならソロ曲の合計がいちばん多いアイドル
 // 「デイリー」のときは、再生回数も最多再生の曲もデイリー(前日の最後の記録からの増加)で出す
 // 最多再生のカードは、ランキングの曲の行と同じく動画一覧を開く
 function renderKpis() {
@@ -734,19 +735,39 @@ function renderKpiSet(root, view) {
     const total = vs.reduce((s, v) => s + metric(v), 0);
     if (noData) q(".k-total").textContent = "–"; else countUp(q(".k-total"), total);
     diffEl(q(".k-diff"), today ? null : sumDiff(vs));
-    const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
-    if (top) countUp(q(".k-top"), metric(top)); else q(".k-top").textContent = "–";
-    q(".k-title").textContent = top ? top.title : "";
-    q(".k-detail").textContent = top ? top.singer : "";
     const th = q(".k-thumb");
     th.textContent = "";
     const btn = q(".k-top-btn");
-    btn.disabled = !top;
-    btn.setAttribute("aria-label", top ? `最多再生の曲 ${top.title}(${top.singer})${today ? " デイリー " : " 累計 "}${fmt.format(metric(top))}回。タップで動画一覧` : "最多再生の曲");
-    if (top) th.append(thumbEl(top));
-    // 押したとき、そのパネルの期間のまま動画一覧を開くために覚えておく
+    const when = today ? " デイリー " : " 累計 ";
+    let pick = null; // { kind: "song", song } か { kind: "idol", idol }
+    if (state.unit === "idol") {
+      // アイドル表示:ソロ曲の合計がいちばん多いアイドル。サムネイルはそのアイドルのいちばん再生されたソロ曲
+      const top = noData ? null : idolStats().filter((x) => x.count).map((x) => ({ ...x, value: today ? x.diff : x.total }))
+        .reduce((a, b) => (b.value > (a ? a.value : -1) ? b : a), null);
+      const best = top && state.videos.filter((v) => v.kind === "solo" && v.idols[0] === top.name)
+        .reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
+      if (top) countUp(q(".k-top"), top.value); else q(".k-top").textContent = "–";
+      q(".k-title").textContent = top ? top.name : "";
+      q(".k-detail").textContent = top ? `ソロ曲 ${top.count}曲` : "";
+      q(".tap-hint").textContent = "タップで曲ごとの内訳";
+      btn.setAttribute("aria-label", top ? `最多再生のアイドル ${top.name} ソロ曲のみ合計${when}${fmt.format(top.value)}回。タップで曲ごとの内訳` : "最多再生のアイドル");
+      if (best) th.append(thumbEl(best));
+      if (top) pick = { kind: "idol", idol: top.idol };
+    } else {
+      // 曲表示:いちばん再生された曲
+      const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
+      if (top) countUp(q(".k-top"), metric(top)); else q(".k-top").textContent = "–";
+      q(".k-title").textContent = top ? top.title : "";
+      q(".k-detail").textContent = top ? top.singer : "";
+      q(".tap-hint").textContent = "タップで動画一覧";
+      btn.setAttribute("aria-label", top ? `最多再生の曲 ${top.title}(${top.singer})${when}${fmt.format(metric(top))}回。タップで動画一覧` : "最多再生の曲");
+      if (top) th.append(thumbEl(top));
+      if (top) pick = { kind: "song", song: top };
+    }
+    btn.disabled = !pick;
+    // 押したとき、そのパネルの期間のまま開くために覚えておく
     root.dataset.view = view;
-    kpiTops.set(root, top);
+    kpiTops.set(root, pick);
   });
 }
 const kpiTops = new WeakMap();
@@ -1109,7 +1130,7 @@ document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addE
   if (!r.checked) return;
   state[r.name] = r.value;
   if (r.name === "unit") updateSearchPlaceholder();
-  if (r.name === "view") renderKpis();
+  renderKpis(); // 期間でも表示(曲/アイドル)でも、上のパネルが変わる
   renderBars();
 }));
 // 表示設定ボタン:その下の設定を開け閉めする(Esc でも閉じる)
@@ -1142,8 +1163,10 @@ $("mvOnly").addEventListener("change", (e) => {
 // 上の最多再生のカード:ランキングの曲の行と同じく、その曲の動画一覧を開く(YouTube へは一覧の行から)
 for (const root of [$("kpisMain"), $("kpisToday")]) {
   root.querySelector(".k-top-btn").addEventListener("click", () => {
-    const top = kpiTops.get(root);
-    if (top) openIn(root.dataset.view, () => openSong(top))();
+    const pick = kpiTops.get(root);
+    if (!pick) return;
+    // 曲は動画一覧、アイドルは曲ごとの内訳(ランキングの行を押したときと同じ)
+    openIn(root.dataset.view, () => (pick.kind === "idol" ? openDetail(pick.idol) : openSong(pick.song)))();
   });
 }
 
