@@ -181,12 +181,12 @@
   .rank svg { width: 22px; height: 17px; display: block; }
   /* PC(900px以上)では左に累計、右にデイリーの表を並べる。「デイリー/累計」の切り替えはPCでは隠す */
   .boards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .board-today { display: none; }
+  /* 「累計」「デイリー」の見出しはPCだけ(スマホは期間を切り替えて1つの表を出すので出さない) */
+  .board-today, .board-head { display: none; }
   .board-head h2 { margin: 4px 0 12px; }
   @media (min-width: 900px) {
     .boards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
-    .board-today { display: block; }
-    .board-head { display: none; }
+    .board-today, .board-head { display: block; }
     .period-group { display: none; }
     .switches { grid-template-columns: minmax(0, 1fr); }
   }
