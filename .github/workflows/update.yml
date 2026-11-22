@@ -35,7 +35,6 @@ jobs:
           ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
 
       - uses: actions/setup-node@v4
-        if: github.event_name != 'push'
         with:
           node-version: 20
 
@@ -45,11 +44,17 @@ jobs:
         env:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
 
+      # サイトのファイルを更新したとき(曲名や歌唱の手動修正を変えたときなど)は、
+      # API を使わずに今の記録からページ用のデータを作り直してから公開する
+      - name: ページ用のデータを作り直す
+        if: github.event_name == 'push'
+        run: node scripts/build-site.mjs
+
       - name: お試し実行の結果をログに出す
         if: inputs.dry_run
         run: |
           echo "=====DRY-RUN-DATA-BEGIN====="
-          node -e 'const d=require("./data/data.json");const l=d.snapshots.at(-1);const p=d.snapshots.at(-2);console.log(JSON.stringify({videos:d.videos,snapshots:[p,l].filter(Boolean)}))'
+          node -e 'const d=require("./data/state.json");const l=d.snapshots.at(-1);const p=d.snapshots.at(-2);console.log(JSON.stringify({videos:d.videos,snapshots:[p,l].filter(Boolean)}))'
           echo "=====DRY-RUN-DATA-END====="
 
       - name: お試し実行の結果を残す
@@ -57,14 +62,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dry-run-data
-          path: data/data.json
+          path: |
+            data/data.json
+            data/state.json
 
       - name: 記録をコミット
         if: github.event_name != 'push' && !inputs.dry_run
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/data.json
+          git add data/data.json data/state.json data/daily
           if git diff --cached --quiet; then
             echo "変更なし"
           else

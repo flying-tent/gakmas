@@ -1,6 +1,11 @@
-// 初星学園の楽曲MVと音源(Topic チャンネル)の再生回数を取得して data/data.json に記録する
+// 初星学園の楽曲MVと音源(Topic チャンネル)の再生回数を取得して記録する
+// - data/state.json:取得に使う内部の記録(直近の日ごとの記録・検索結果のキャッシュ)。ページは読まない
+// - data/data.json:ページが読むファイル。曲ごとの曲名・歌唱アイドルと、動画ごとの合計回数・その日の回数だけにして軽く保つ
+//   (作り方は scripts/build-site.mjs、曲のまとめ方と曲名・歌唱アイドルの読み取りは scripts/songs.mjs)
+// - data/daily/:日ごとの記録をずっと残す(あとで推移のグラフを作るため)
 // 実行: YT_API_KEY=xxxx node scripts/fetch.mjs
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readState, writeState, buildSite, writeSite } from "./build-site.mjs";
 
 const API_KEY = process.env.YT_API_KEY;
 const MV_PLAYLIST_ID = "UU2dXx-3RXeeP8hA5AGt8vuw"; // 初星学園チャンネルのアップロード一覧
@@ -18,8 +23,10 @@ const SHORTS_TITLE = /#/;
 const INSTRUMENTAL = /instrumental|off\s*vocal|オフボーカル|カラオケ/i;
 // 音源のうち数えない版:別メンバー・ソロなどの ver. 違い、ゲームサイズ、リミックスなど
 const AUDIO_EXCLUDE = /\bver\.|\bversion\b|game\s*size|ゲームサイズ|tv\s*size|short\s*ver|remix|リミックス|\bmix\b/i;
-const DATA_FILE = new URL("../data/data.json", import.meta.url);
-const KEEP_DAYS = 400; // 記録を残す日数
+// state.json に残す日数。その日の回数の計算に要るのは最新と前日の記録だけ(古い日の記録は data/daily/ に残る)
+const KEEP_DAYS = 3;
+// 日ごとの記録の置き場所。月ごとのファイル(YYYY-MM.json)と、動画の情報(videos.json)
+const DAILY_DIR = new URL("../data/daily/", import.meta.url);
 
 if (!API_KEY) {
   console.error("環境変数 YT_API_KEY が設定されていません");
@@ -84,7 +91,8 @@ for (const it of await playlistItems(MV_PLAYLIST_ID)) {
 //   (2) それで1本も見つからなければ検索で集める(1回100ユニットかかるため、結果は日付ごとに保存して1日1回だけ)
 // 曲名と概要欄は videos.list でまとめて取り直す(検索結果の概要欄は途中で切れているため)
 let data = { videos: [], snapshots: [] };
-try { data = JSON.parse(await readFile(DATA_FILE, "utf8")); } catch {}
+// 内部の記録を読む。まだ無ければ、以前の形式の data.json(記録も入っていた)から引き継ぐ
+data = await readState();
 const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
 async function audioIdsFromPlaylists(channelId) {
@@ -189,10 +197,43 @@ const snapshot = { date, at: now.toISOString(), views };
 data.snapshots = (data.snapshots || []).filter((s) => s.date !== date);
 data.snapshots.push(snapshot);
 data.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+
+// 日ごとの記録を月ごとのファイルに残す。その日の値は毎時上書きされ、日付が変わる直前の値が最後に残る
+// (data.json にあるほかの日の記録もまだ残っていなければ入れる。初回の移し替えを兼ねる)
+async function readJson(url, fallback) {
+  try { return JSON.parse(await readFile(url, "utf8")); } catch { return fallback; }
+}
+await mkdir(DAILY_DIR, { recursive: true });
+const byMonth = {};
+for (const s of data.snapshots) (byMonth[s.date.slice(0, 7)] ||= []).push(s);
+for (const [month, snaps] of Object.entries(byMonth)) {
+  const file = new URL(`${month}.json`, DAILY_DIR);
+  const archive = await readJson(file, { month, days: [] });
+  for (const s of snaps) {
+    // 今日の分はいつも最新の値で上書き。過去の日は、まだ無いときだけ入れる
+    const i = archive.days.findIndex((d) => d.date === s.date);
+    if (i < 0) archive.days.push(s);
+    else if (s.date === date) archive.days[i] = s;
+  }
+  archive.days.sort((a, b) => a.date.localeCompare(b.date));
+  // 1日1行にして、差分を見やすくする
+  await writeFile(file, '{"month":' + JSON.stringify(month) + ',"days":[\n' + archive.days.map((d) => JSON.stringify(d)).join(",\n") + "\n]}\n");
+}
+// 動画の情報(曲名・種類・公開日など)。一覧から消えた動画も、記録の読み解きに要るので消さずに残す
+const videosFile = new URL("videos.json", DAILY_DIR);
+const videoIndex = await readJson(videosFile, {});
+for (const v of listed) videoIndex[v.id] = { ...videoIndex[v.id], ...v, lastSeen: date };
+await writeFile(videosFile, "{\n" + Object.entries(videoIndex).map(([id, v]) => JSON.stringify(id) + ":" + JSON.stringify(v)).join(",\n") + "\n}\n");
+
 data.snapshots = data.snapshots.slice(-KEEP_DAYS);
 data.videos = listed;
 data.updatedAt = now.toISOString();
 
 await mkdir(new URL("../data/", import.meta.url), { recursive: true });
-await writeFile(DATA_FILE, JSON.stringify(data, null, 0).replace(/\},\{/g, "},\n{") + "\n");
+await writeState(data);
+
+// ページが読むファイル(曲ごとにまとめ、合計回数とその日の回数だけを載せる)
+const site = buildSite(data);
+const bytes = await writeSite(site);
+console.log(`data.json: ${site.songs.length}曲、${bytes} バイト`);
 console.log(`${date}: ${listed.length}本を記録しました(記録 ${data.snapshots.length}日分)`);
