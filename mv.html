@@ -227,6 +227,28 @@
   .status.error { border-color: var(--critical); }
   .status.error strong { color: var(--critical); }
   .hidden { display: none !important; }
+  /* 曲の検索(切替の下に常に表示) */
+  .search { margin: 0 0 12px; }
+  .search-close {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 36px; height: 36px; padding: 0; border-radius: 50%; color: var(--text-secondary);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .search-close:focus { outline: none; }
+  .search-close:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+  .search-box > svg { width: 18px; height: 18px; display: block; flex: none; }
+  .search-close { border: 0; background: transparent; font-size: 20px; line-height: 1; }
+  .search-box {
+    display: flex; align-items: center; gap: 6px; width: 100%; min-height: 42px; padding: 0 2px 0 12px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); color: var(--text-muted);
+  }
+  .search-box:focus-within { border-color: var(--text-muted); }
+  .search-box input {
+    flex: 1; min-width: 0; height: 40px; padding: 0; border: 0; background: transparent; outline: none;
+    font: inherit; font-size: 16px; color: var(--text-primary); -webkit-appearance: none; appearance: none;
+  }
+  .search-box input::-webkit-search-cancel-button { display: none; }
+  .search-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 24px 0; }
   .foot { margin-top: 24px; text-align: center; }
 
   @media (max-width: 640px) {
@@ -277,6 +299,13 @@
           </div>
         </fieldset>
       </div>
+      <div class="search" id="search">
+        <div class="search-box" id="searchBox" role="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+          <input type="search" id="searchInput" placeholder="曲名・アイドル名" aria-label="曲名・アイドル名で検索" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+          <button type="button" class="search-close hidden" id="searchClose" aria-label="検索語を消す">×</button>
+        </div>
+      </div>
       <div class="today-note hidden" id="todayNote">今日のランキングは明日から表示されます。</div>
       <div class="ibars" id="bars"></div>
       <button type="button" class="more hidden" id="moreBtn">もっと見る</button>
@@ -305,20 +334,20 @@ const DATA_URL = "data/data.json";
 // アイドル一覧(この順でグラフに並ぶ)。概要欄の「歌:」行から name を探す
 // color: バーの色
 const IDOLS = [
-  { name: "花海咲季",     color: "#E85B66" },
-  { name: "月村手毬",     color: "#56AEE2" },
-  { name: "藤田ことね",   color: "#F2CC3A" },
-  { name: "有村麻央",     color: "#B566C6" },
-  { name: "葛城リーリヤ", color: "#BFD0D6" },
-  { name: "倉本千奈",     color: "#EF8E3E" },
-  { name: "紫雲清夏",     color: "#9BD663" },
-  { name: "篠澤広",       color: "#56B8D2" },
-  { name: "姫崎莉波",     color: "#EC88BC" },
-  { name: "花海佑芽",     color: "#E35A38" },
-  { name: "秦谷美鈴",     color: "#6F9AEE" },
-  { name: "十王星南",     color: "#F0AC45" },
-  { name: "雨夜燕",       color: "#8A79F2" },
-  { name: "氷渡香名江",   color: "#51B087" },
+  { name: "花海咲季", kana: "はなみ さき", color: "#E85B66" },
+  { name: "月村手毬", kana: "つきむら てまり", color: "#56AEE2" },
+  { name: "藤田ことね", kana: "ふじた ことね", color: "#F2CC3A" },
+  { name: "有村麻央", kana: "ありむら まお", color: "#B566C6" },
+  { name: "葛城リーリヤ", kana: "かつらぎ りーりや", color: "#BFD0D6" },
+  { name: "倉本千奈", kana: "くらもと ちな", color: "#EF8E3E" },
+  { name: "紫雲清夏", kana: "しうん すみか", color: "#9BD663" },
+  { name: "篠澤広", kana: "しのさわ ひろ", color: "#56B8D2" },
+  { name: "姫崎莉波", kana: "ひめさき りなみ", color: "#EC88BC" },
+  { name: "花海佑芽", kana: "はなみ うめ", color: "#E35A38" },
+  { name: "秦谷美鈴", kana: "はたや みすず", color: "#6F9AEE" },
+  { name: "十王星南", kana: "じゅうおう せな", color: "#F0AC45" },
+  { name: "雨夜燕", kana: "あまや つばめ", color: "#8A79F2" },
+  { name: "氷渡香名江", kana: "ひわたり かなえ", color: "#51B087" },
 ];
 // 音源(Topic チャンネル)の概要欄はローマ字表記のことがあるので、ローマ字でも探す(姓名どちらの順でも可)
 const ROMAJI = {
@@ -345,7 +374,47 @@ const TITLE_OVERRIDES = {};
 const SONG_ALIASES = {};
 // ================================================
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false };
+// 曲名の読み(検索用): { "曲名": "よみ" または ["よみ", ...] }
+// 漢字の入った曲名だけ書けばよい(ひらがな・カタカナ・英字の曲名はそのまま探せる)
+const SONG_READINGS = {
+  "がむしゃらに行こう！": "がむしゃらにいこう",
+  "つよつよ最強エクササイズ": "つよつよさいきょうえくささいず",
+  "ねえ、言っちゃうよ。": "ねえいっちゃうよ",
+  "一体いつから": "いったいいつから",
+  "三分半の創世": "さんぷんはんのそうせい", // 配信データの英字表記 Sanpunhan no Sousei に合わせる
+  "世界一可愛い私": "せかいいちかわいいわたし",
+  "仮装狂騒曲": "かそうきょうそうきょく",
+  "光景": "こうけい",
+  "冠菊": "かむろぎく",
+  "初": "はじめ",
+  "古今東西ちょちょいのちょい": "ここんとうざいちょちょいのちょい",
+  "叶えたい、ことばかり": "かなえたいことばかり",
+  "小さな野望": "ちいさなやぼう",
+  "慟哭のコンチェルト": "どうこくのこんちぇると",
+  "憧れをいっぱい": "あこがれをいっぱい",
+  "日々、発見的ステップ！": "ひびはっけんてきすてっぷ",
+  "春と光": "はるとひかり",
+  "桜フォトグラフ": "さくらふぉとぐらふ",
+  "極光": "きょっこう",
+  "標": "しるべ",
+  "歌声は君いろ": "うたごえはきみいろ",
+  "海奏ララバイ": "かいそうららばい", // 公式のふりがなは未発表。ピクシブ百科事典の読み
+  "濡羽色の薄明": "ぬればいろのはくめい",
+  "理論武装して": "りろんぶそうして",
+  "白線": "はくせん",
+  "真っ白いページと水彩の主人公": "まっしろいぺーじとすいさいのしゅじんこう",
+  "神かわいい": "かみかわいい",
+  "空と約束": "そらとやくそく",
+  "自己肯定感爆上げ↑↑しゅきしゅきソング": "じここうていかんばくあげしゅきしゅきそんぐ",
+  "見て": "みて",
+  "赤裸々": "せきらら",
+  "重なる夜空の痕跡に": "かさなるよぞらのこんせきに",
+  "金の斧、銀の斧、エメラルドの斧": "きんのおのぎんのおのえめらるどのおの",
+  "雨上がりのアイリス": "あめあがりのあいりす",
+  "雪解けに": "ゆきどけに",
+};
+
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false, query: "" };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
@@ -669,6 +738,45 @@ function crownEl(rank) {
   return span;
 }
 
+// ---- 検索:曲名・歌唱アイドル名(漢字・ひらがな・ローマ字)・曲名の読みで絞り込む ----
+// 比較用の文字列:全角半角・大文字小文字・カタカナとひらがなの違いと、空白や記号を無視する
+function searchNorm(t) {
+  return String(t).normalize("NFKC").toLowerCase()
+    .replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .replace(/[\s・、。,.!?！？「」『』()（）'"’”“~〜\-‐―↑]/g, "");
+}
+const searchTokens = () => state.query.split(/[\s　]+/).map(searchNorm).filter(Boolean);
+const searchCache = new WeakMap();
+// contains:語を含めば当てはまる(曲名・読み・歌唱の表示・アイドル名の漢字)
+// prefix:語で始まれば当てはまる(アイドル名のひらがな・ローマ字。「さき」で姫崎莉波まで出ないように、姓・名・姓名・名姓の頭で比べる)
+// アイドル名のひらがな・ローマ字(姓・名・姓名・名姓)
+function idolNameParts(name) {
+  const kana = (IDOLS.find((i) => i.name === name)?.kana || "").split(" ").filter(Boolean);
+  const [given = "", family = ""] = ROMAJI[name] || [];
+  return [...kana, kana.join(""), [...kana].reverse().join(""), given, family, family + given, given + family];
+}
+function searchFields(v) {
+  if (searchCache.has(v)) return searchCache.get(v);
+  const contains = [v.title, ...[].concat(SONG_READINGS[v.title] || []), v.singer, ...v.idols];
+  const prefix = v.idols.flatMap(idolNameParts);
+  const fields = { contains: contains.map(searchNorm).filter(Boolean), prefix: prefix.map(searchNorm).filter(Boolean) };
+  searchCache.set(v, fields);
+  return fields;
+}
+const fieldsMatch = (f, tokens) => tokens.every((t) => f.contains.some((x) => x.includes(t)) || f.prefix.some((x) => x.startsWith(t)));
+// 曲:スペース区切りの語がすべて、曲名・読み・歌唱アイドル名のどれかに当てはまる曲を残す
+function matchesSearch(v) {
+  const tokens = searchTokens();
+  return !tokens.length || fieldsMatch(searchFields(v), tokens);
+}
+// アイドル:名前(漢字・ひらがな・ローマ字)に当てはまるアイドルを残す。スペース区切りなら、どれかの語に当てはまるアイドル
+function idolMatchesSearch(name) {
+  const tokens = searchTokens();
+  if (!tokens.length) return true;
+  const f = { contains: [searchNorm(name)], prefix: idolNameParts(name).map(searchNorm).filter(Boolean) };
+  return tokens.some((t) => fieldsMatch(f, [t]));
+}
+
 // 曲ごとのランキング(ソロ・ユニット・全体曲のすべてのMV)
 const GROUP_COLOR = "#A3A3A3";
 const songColor = (v) => (v.kind === "solo" ? (IDOLS.find((i) => i.name === v.idols[0])?.color || GROUP_COLOR) : GROUP_COLOR);
@@ -676,20 +784,27 @@ const SONG_LIMIT = 10;
 function renderSongs() {
   const box = $("bars");
   const today = isToday();
-  const list = [...state.videos].sort((a, b) => metric(b) - metric(a));
+  // 検索中は当てはまる曲を全部並べ、順位(王冠)は出さない
+  const searching = !!searchTokens().length;
+  const list = [...state.videos].filter(matchesSearch).sort((a, b) => metric(b) - metric(a));
+  if (searching && !list.length) {
+    const e = document.createElement("div"); e.className = "search-empty"; e.textContent = "見つかりませんでした";
+    box.append(e);
+  }
   const levels = [...new Set(list.map(metric))];
   const maxVal = Math.max(1, ...list.map(metric));
-  const shown = state.expanded ? list : list.slice(0, SONG_LIMIT);
+  const shown = state.expanded || searching ? list : list.slice(0, SONG_LIMIT);
   shown.forEach((v, idx) => {
     const value = metric(v);
-    const rank = levels.indexOf(value) + 1;
-    const row = songRow(v, songColor(v), maxVal, idx, { rank: value > 0 && rank <= 3 ? rank : 0, showSinger: true });
-    row.setAttribute("aria-label", `${value > 0 && rank <= 3 ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(value)}回。タップで動画の一覧`);
+    const rank = searching ? 0 : levels.indexOf(value) + 1;
+    const ranked = value > 0 && rank >= 1 && rank <= 3;
+    const row = songRow(v, songColor(v), maxVal, idx, { rank: ranked ? rank : 0, showSinger: true });
+    row.setAttribute("aria-label", `${ranked ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(value)}回。タップで動画の一覧`);
     row.addEventListener("click", () => openSong(v));
     box.append(row);
   });
   const more = $("moreBtn");
-  more.classList.toggle("hidden", state.expanded || list.length <= SONG_LIMIT);
+  more.classList.toggle("hidden", state.expanded || searching || list.length <= SONG_LIMIT);
   more.textContent = "もっと見る";
 }
 
@@ -701,10 +816,20 @@ function renderBars() {
   $("todayNote").classList.toggle("hidden", !(today && !state.hasPrev));
   if (today && !state.hasPrev) return;
   if (state.unit === "song") { renderSongs(); return; }
+  // 検索中は名前に当てはまるアイドルだけを並べ、順位(王冠)は出さない
+  const searching = !!searchTokens().length;
   const stats = idolStats().map((s) => ({ ...s, value: today ? s.diff : s.total }))
     .filter((s) => s.count)
     .sort((a, b) => b.value - a.value);
   if (!today) stats.push(...idolStats().filter((s) => !s.count).map((s) => ({ ...s, value: 0 })));
+  if (searching) {
+    const kept = stats.filter((s) => idolMatchesSearch(s.name));
+    stats.length = 0; stats.push(...kept);
+    if (!stats.length) {
+      const e = document.createElement("div"); e.className = "search-empty"; e.textContent = "見つかりませんでした";
+      box.append(e);
+    }
+  }
   const maxVal = Math.max(1, ...stats.map((s) => s.value));
   // 同じ値は同じ順位(1, 2, 2, 3 …)
   const levels = [...new Set(stats.map((s) => s.value))];
@@ -712,7 +837,7 @@ function renderBars() {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "irow";
-    const rank = levels.indexOf(s.value) + 1;
+    const rank = searching ? 99 : levels.indexOf(s.value) + 1;
     row.setAttribute("aria-label", today
       ? `${rank <= 3 && s.value > 0 ? rank + "位 " : ""}${s.name} 今日の再生回数 ${fmt.format(s.value)}回。タップで曲ごとの回数`
       : `${s.name} ソロ曲合計 ${fmt.format(s.total)}回` + (state.hasPrev && s.count ? `、前日比 ${s.diff >= 0 ? "+" : "−"}${fmt.format(Math.abs(s.diff))}` : "") + "。タップで曲ごとの回数");
@@ -857,12 +982,45 @@ document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addE
   if (!r.checked) return;
   state[r.name] = r.value;
   state.expanded = false;
+  if (r.name === "unit") updateSearchPlaceholder();
   if (r.name === "view") renderKpis();
   renderBars();
 }));
 $("moreBtn").addEventListener("click", () => {
   state.expanded = true;
   renderBars();
+});
+// 検索:入力欄でエンターを押したときに、今のタブ(曲/アイドル)の一覧へ反映する
+// タブを切り替えても検索語はそのまま、切り替えた先の一覧にも効く
+function applySearch() {
+  state.query = $("searchInput").value;
+  state.expanded = false;
+  renderBars();
+}
+function updateSearchPlaceholder() {
+  const t = state.unit === "idol" ? "アイドル名" : "曲名・アイドル名";
+  $("searchInput").placeholder = t;
+  $("searchInput").setAttribute("aria-label", t + "で検索");
+}
+// ×:検索語を消して、すぐ一覧を元に戻す
+function clearSearch(render = true) {
+  $("searchInput").value = "";
+  $("searchClose").classList.add("hidden");
+  const was = state.query;
+  state.query = "";
+  if (render && was) renderBars();
+}
+$("searchClose").addEventListener("click", () => { clearSearch(); $("searchInput").focus({ preventScroll: true }); });
+$("searchInput").addEventListener("input", (e) => $("searchClose").classList.toggle("hidden", !e.target.value));
+$("searchInput").addEventListener("keydown", (e) => {
+  // 日本語入力の変換を確定するエンターでは検索しない
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === "Enter") {
+    e.preventDefault();
+    applySearch();
+    e.target.blur(); // スマホではキーボードを閉じて結果を見やすくする
+  }
+  if (e.key === "Escape") clearSearch();
 });
 const dlg = $("detail");
 $("detailClose").addEventListener("click", () => dlg.close());

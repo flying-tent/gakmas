@@ -13,3 +13,4 @@
 - 対象:初星学園チャンネルの「Official Music Video」(ショート除く)と、Hatsuboshi Gakuen - Topic の音源(歌入り・インスト。ver. 違い・ゲームサイズ・リミックスは除く)。同じ曲のMV・音源・インストは曲名で1曲にまとめて合計する
 - 音源が Hatsuboshi Gakuen - Topic 以外(歌唱アイドル名の Topic チャンネルなど)にあるとき:`scripts/fetch.mjs` の `EXTRA_AUDIO_CHANNEL_IDS` にチャンネルIDを足す。Hatsuboshi Gakuen - Topic に同じ曲名があるものは数えない
 - 曲名が食い違って別の曲に分かれたとき:`mv.html` の `SONG_ALIASES` で同じ曲としてつなぐ
+- 検索:曲名・アイドル名(漢字・ひらがな・ローマ字)で絞り込める。漢字の入った新曲が出たら、`mv.html` の `SONG_READINGS` に読みを足すと、ひらがなでも探せる。アイドルの読みは `IDOLS` の `kana`(姓と名をスペースで区切る)
