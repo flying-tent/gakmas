@@ -154,7 +154,6 @@
   .mv-only input:focus { outline: none; }
   .mv-only input:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .mv-only input, .mv-only input::before { transition: none; } }
-  .more { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); font: inherit; font-size: 15px; color: var(--text-secondary); cursor: pointer; }
   .ibars .song-row { padding: 8px 6px; }
   .today-note { text-align: center; color: var(--text-muted); font-size: 14px; padding: 24px 0; }
   .rank { display: inline-block; margin-left: 6px; vertical-align: -3px; }
@@ -352,7 +351,6 @@
       </div>
       <div class="today-note hidden" id="todayNote">今日のランキングは明日から表示されます。</div>
       <div class="ibars" id="bars"></div>
-      <button type="button" class="more hidden" id="moreBtn">もっと見る</button>
     </section>
 
 
@@ -458,7 +456,7 @@ const SONG_READINGS = {
   "雪解けに": "ゆきどけに",
 };
 
-const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", expanded: false, query: "", mvOnly: false, rawVideos: [] };
+const state = { videos: [], updatedAt: null, prevDate: null, hasPrev: false, view: "today", unit: "song", query: "", mvOnly: false, rawVideos: [] };
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("ja-JP");
 
@@ -765,9 +763,27 @@ function idolStats() {
 function thumbUrl(v) {
   return v.thumb || "https://i.ytimg.com/vi/" + encodeURIComponent(v.id) + "/mqdefault.jpg";
 }
-function thumbEl(v) {
+// ランキングのサムネイルは、上から順に読み込む(同時に THUMB_PARALLEL 枚まで)。
+// 一覧を描き直したら、まだ始めていない分は捨てて新しい一覧の頭からやり直す
+const THUMB_PARALLEL = 3;
+const thumbQueue = { list: [], active: 0, gen: 0 };
+function resetThumbQueue() { thumbQueue.list = []; thumbQueue.active = 0; thumbQueue.gen++; }
+function pumpThumbs() {
+  while (thumbQueue.active < THUMB_PARALLEL && thumbQueue.list.length) {
+    const { img, url, gen } = thumbQueue.list.shift();
+    thumbQueue.active++;
+    const done = () => { if (gen === thumbQueue.gen) thumbQueue.active--; pumpThumbs(); };
+    img.addEventListener("load", done, { once: true });
+    img.addEventListener("error", done, { once: true });
+    img.src = url;
+  }
+}
+// opts.queue:順番待ちで読み込む(ランキング用)。なければすぐ読み込む(ポップアップや上のカード)
+function thumbEl(v, opts = {}) {
   const img = document.createElement("img");
-  img.className = "thumb"; img.loading = "lazy"; img.alt = ""; img.src = thumbUrl(v);
+  img.className = "thumb"; img.alt = "";
+  if (opts.queue) { thumbQueue.list.push({ img, url: thumbUrl(v), gen: thumbQueue.gen }); queueMicrotask(pumpThumbs); }
+  else { img.loading = "lazy"; img.src = thumbUrl(v); }
   img.addEventListener("error", () => {
     const ph = document.createElement("div"); ph.className = "thumb";
     img.replaceWith(ph);
@@ -813,8 +829,10 @@ function idolNameParts(name) {
 }
 function searchFields(v) {
   if (searchCache.has(v)) return searchCache.get(v);
-  const contains = [v.title, ...[].concat(SONG_READINGS[v.title] || []), v.singer, ...v.idols];
-  const prefix = v.idols.flatMap(idolNameParts);
+  // ユニット名だけの曲(Star-mine・雨上がりのアイリス)は、メンバーの名前でも探せるようにする
+  const singers = v.idols.length ? v.idols : (UNIT_MEMBERS[v.singer] || []);
+  const contains = [v.title, ...[].concat(SONG_READINGS[v.title] || []), v.singer, ...singers];
+  const prefix = singers.flatMap(idolNameParts);
   const fields = { contains: contains.map(searchNorm).filter(Boolean), prefix: prefix.map(searchNorm).filter(Boolean) };
   searchCache.set(v, fields);
   return fields;
@@ -825,22 +843,36 @@ function matchesSearch(v) {
   const tokens = searchTokens();
   return !tokens.length || fieldsMatch(searchFields(v), tokens);
 }
-// アイドル:名前(漢字・ひらがな・ローマ字)に当てはまるアイドルを残す。スペース区切りなら、どれかの語に当てはまるアイドル
+// 歌唱の表示がユニット名だけの曲のメンバー(検索用。曲表示ではアイドル名で、アイドル表示では曲名で当てはめる)
+const UNIT_MEMBERS = {
+  "Re;IRIS": ["花海咲季", "月村手毬", "藤田ことね"],
+  "Begrazia": ["花海佑芽", "秦谷美鈴", "十王星南"],
+};
+// その曲を歌っているアイドル。「初星学園」名義の全体曲は全員とみなす
+function singersOf(v) {
+  if (v.idols.length) return v.idols;
+  if (v.singer === "初星学園") return IDOLS.map((i) => i.name);
+  return UNIT_MEMBERS[v.singer] || [];
+}
+// 曲名と読みだけで比べる(アイドル表示で曲名を検索するとき用)
+const songTitleMatches = (v, t) => [v.title, ...[].concat(SONG_READINGS[v.title] || [])].some((x) => searchNorm(x).includes(t));
+// アイドル:名前(漢字・ひらがな・ローマ字)に当てはまるか、当てはまる曲を歌っているアイドルを残す
+// スペース区切りなら、すべての語に当てはまるアイドル(曲タブと同じ AND)。並びと回数はいつもどおり(ソロ曲の合計)
 function idolMatchesSearch(name) {
   const tokens = searchTokens();
   if (!tokens.length) return true;
   const f = { contains: [searchNorm(name)], prefix: idolNameParts(name).map(searchNorm).filter(Boolean) };
-  return tokens.some((t) => fieldsMatch(f, [t]));
+  const songs = state.videos.filter((v) => singersOf(v).includes(name));
+  return tokens.every((t) => fieldsMatch(f, [t]) || songs.some((v) => songTitleMatches(v, t)));
 }
 
 // 曲ごとのランキング(ソロ・ユニット・全体曲のすべてのMV)
 const GROUP_COLOR = "#A3A3A3";
 const songColor = (v) => (v.kind === "solo" ? (IDOLS.find((i) => i.name === v.idols[0])?.color || GROUP_COLOR) : GROUP_COLOR);
-const SONG_LIMIT = 10;
 function renderSongs() {
   const box = $("bars");
   const today = isToday();
-  // 検索中は当てはまる曲を全部並べ、順位(王冠)は出さない
+  // 曲は全部並べる(サムネイルは上から順に読み込む)。検索中は順位(王冠)を出さない
   const searching = !!searchTokens().length;
   const list = [...state.videos].filter(matchesSearch).sort((a, b) => metric(b) - metric(a));
   if (searching && !list.length) {
@@ -849,25 +881,21 @@ function renderSongs() {
   }
   const levels = [...new Set(list.map(metric))];
   const maxVal = Math.max(1, ...list.map(metric));
-  const shown = state.expanded || searching ? list : list.slice(0, SONG_LIMIT);
-  shown.forEach((v, idx) => {
+  list.forEach((v, idx) => {
     const value = metric(v);
     const rank = searching ? 0 : levels.indexOf(value) + 1;
     const ranked = value > 0 && rank >= 1 && rank <= 3;
-    const row = songRow(v, songColor(v), maxVal, idx, { rank: ranked ? rank : 0, showSinger: true });
+    const row = songRow(v, songColor(v), maxVal, idx, { rank: ranked ? rank : 0, showSinger: true, queueThumb: true });
     row.setAttribute("aria-label", `${ranked ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(value)}回。タップで動画の一覧`);
     row.addEventListener("click", () => openSong(v));
     box.append(row);
   });
-  const more = $("moreBtn");
-  more.classList.toggle("hidden", state.expanded || searching || list.length <= SONG_LIMIT);
-  more.textContent = "もっと見る";
 }
 
 function renderBars() {
   const box = $("bars");
   box.textContent = "";
-  $("moreBtn").classList.add("hidden");
+  resetThumbQueue();
   const today = isToday();
   $("todayNote").classList.toggle("hidden", !(today && !state.hasPrev));
   if (today && !state.hasPrev) return;
@@ -955,7 +983,7 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   info.append(t);
   if (!opts.label) info.append(m);
   info.append(bar, n);
-  a.append(thumbEl(v), info);
+  a.append(thumbEl(v, { queue: !!opts.queueThumb }), info);
   return a;
 }
 
@@ -1037,15 +1065,10 @@ function showDetail() {
 document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addEventListener("change", () => {
   if (!r.checked) return;
   state[r.name] = r.value;
-  state.expanded = false;
   if (r.name === "unit") updateSearchPlaceholder();
   if (r.name === "view") renderKpis();
   renderBars();
 }));
-$("moreBtn").addEventListener("click", () => {
-  state.expanded = true;
-  renderBars();
-});
 // フィルタボタン:検索欄の下の設定を開け閉めする(Esc でも閉じる)
 function setSettingsOpen(open) {
   $("settingsBtn").setAttribute("aria-expanded", String(open));
@@ -1063,7 +1086,6 @@ $("mvOnly").checked = state.mvOnly;
 $("mvOnly").addEventListener("change", (e) => {
   state.mvOnly = e.target.checked;
   saveMvOnly(state.mvOnly);
-  state.expanded = false;
   regroup();
   renderKpis();
   renderBars();
@@ -1073,11 +1095,10 @@ $("mvOnly").addEventListener("change", (e) => {
 // タブを切り替えても検索語はそのまま、切り替えた先の一覧にも効く
 function applySearch() {
   state.query = $("searchInput").value;
-  state.expanded = false;
   renderBars();
 }
 function updateSearchPlaceholder() {
-  const t = state.unit === "idol" ? "アイドル名" : "曲名・アイドル名";
+  const t = "曲名・アイドル名";
   $("searchInput").placeholder = t;
   $("searchInput").setAttribute("aria-label", t + "で検索");
 }
