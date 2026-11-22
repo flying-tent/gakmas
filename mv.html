@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-<title>プロデュースノート ～伸びしろ観測記録～</title>
+<title>学マス楽曲レポート</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!--
   再生回数は GitHub Actions(.github/workflows/update.yml)が毎日取得して data/data.json に記録します。
@@ -73,7 +73,6 @@
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
   header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
   h1 { font-size: 22px; margin: 0; letter-spacing: .01em; }
-  .h1-sub { display: inline-block; font-size: .68em; font-weight: 500; color: var(--text-secondary); }
   .updated { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .sub { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
   h2 { font-size: 16px; margin: 0 0 4px; }
@@ -145,7 +144,7 @@
   .radio input:checked { background: radial-gradient(circle, var(--radio-dot) 0 4.5px, var(--surface-1) 5px); }
   .radio input:focus { outline: none; }
   .radio input:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
-  /* 「MVだけで数える」のオン/オフ */
+  /* 「MVだけで集計」のオン/オフ */
   .mv-only { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 8px 12px; min-height: 48px; border-radius: 12px; background: var(--radio-panel); font-size: 15px; font-weight: 500; color: var(--text-primary); cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .mv-only input { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 46px; height: 28px; margin: 0; border-radius: 999px; background: var(--radio-ring); cursor: pointer; transition: background .2s; }
   .mv-only input::before { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
@@ -298,7 +297,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>プロデュースノート <span class="h1-sub">～伸びしろ観測記録～</span></h1>
+    <h1>学マス楽曲レポート</h1>
     <div class="updated" id="updated"></div>
   </header>
 
@@ -327,7 +326,7 @@
         </div>
         <button type="button" class="settings-btn" id="settingsBtn" aria-label="表示の切り替え" aria-expanded="false" aria-controls="settingsPanel"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 5h17l-6.5 7.6V18l-4 2.2v-7.6z"/></svg></button>
       </div>
-      <!-- フィルタボタンで開閉する設定(期間・表示・MVだけで数える) -->
+      <!-- フィルタボタンで開閉する設定(期間・表示・MVだけで集計) -->
       <div class="settings" id="settingsPanel">
         <div class="settings-clip"><div class="settings-card">
         <div class="switches">
@@ -346,7 +345,7 @@
             </div>
           </fieldset>
         </div>
-        <label class="mv-only"><span>MVだけで数える</span><input type="checkbox" id="mvOnly" role="switch"></label>
+        <label class="mv-only"><span>MVだけで集計</span><input type="checkbox" id="mvOnly" role="switch"></label>
         </div></div>
       </div>
       <div class="today-note hidden" id="todayNote">今日のランキングは明日から表示されます。</div>
@@ -640,7 +639,7 @@ function groupSongs(videos) {
   });
 }
 
-// 「MVだけで数える」がオンなら MV だけで曲をまとめる(MVのない曲はランキングから外れる)
+// 「MVだけで集計」がオンなら MV だけで曲をまとめる(MVのない曲はランキングから外れる)
 // 上の数字・曲・アイドル・動画一覧のすべてがこの集計を使う
 function regroup() {
   const list = state.mvOnly ? state.rawVideos.filter((v) => (v.source || "mv") === "mv") : state.rawVideos;
@@ -1080,7 +1079,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && settingsOpen()) { setSettingsOpen(false); $("settingsBtn").focus({ preventScroll: true }); }
 });
 
-// MVだけで数える
+// MVだけで集計
 state.mvOnly = loadMvOnly();
 $("mvOnly").checked = state.mvOnly;
 $("mvOnly").addEventListener("change", (e) => {
