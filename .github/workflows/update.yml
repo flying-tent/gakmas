@@ -13,10 +13,8 @@ on:
   push:
     branches: [main] # サイトのファイルを更新したときは公開だけ行う
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+# 権限は必要なジョブにだけ渡す（最小権限）
+permissions: {}
 
 concurrency:
   group: update-and-deploy
@@ -26,6 +24,9 @@ jobs:
   # 1. 再生回数を記録して、公開するファイルをアップロードする
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 記録をコミットして push するため
+      pages: read
     steps:
       # 起動時点ではなく、その時の最新の main を取り出す
       # (続けて起動されたとき、前の実行の記録コミットの上に積むため)
@@ -98,6 +99,9 @@ jobs:
     needs: update
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
