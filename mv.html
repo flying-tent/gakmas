@@ -136,9 +136,10 @@
   .radio-group { margin: 0; padding: 8px; border: 0; border-radius: 12px; background: var(--radio-panel); min-width: 0; }
   /* 見出しは画面には出さず、読み上げ用にだけ残す */
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  .radios { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  /* ボタンの幅は文字数に合わせ、残りの幅を均等に足す(「曲」は狭く、「アイドル」は広く) */
+  .radios { display: flex; gap: 6px; }
+  .radios .radio { flex: 1 1 auto; }
   .radio { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 6px 6px; border-radius: 10px; background: var(--surface-1); cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text-primary); -webkit-tap-highlight-color: transparent; white-space: nowrap; }
-  .radio span { font-feature-settings: "palt"; letter-spacing: -0.03em; }
   .radio:has(input:checked) { background: var(--radio-on-bg); }
   .radio input { appearance: none; -webkit-appearance: none; flex: none; width: 18px; height: 18px; margin: 0; border-radius: 50%; border: 2px solid var(--radio-ring); background: var(--surface-1); }
   .radio input:checked { background: radial-gradient(circle, var(--radio-dot) 0 4.5px, var(--surface-1) 5px); }
