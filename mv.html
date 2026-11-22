@@ -76,7 +76,6 @@
   h1 { font-size: 22px; margin: 0; letter-spacing: .01em; }
   .updated-box { margin-left: auto; text-align: right; }
   .updated { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .updated-note { font-size: 12px; color: var(--text-secondary); max-width: 26em; margin-top: 2px; line-height: 1.45; }
   /* 「タップで〜」の小さなヒント */
   .tap-hint { font-size: 12px; font-weight: 400; color: var(--text-muted); white-space: nowrap; }
   .sub { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
@@ -175,6 +174,8 @@
   .board-today { display: none; }
   .board-head h2 { margin: 4px 0 0; }
   /* 見出しの下の注記(デイリーの定義・アイドル別の合計範囲) */
+  .board-note:empty { display: none; }
+  .board-head h2:last-child, .board-head:has(.board-note:empty) h2 { margin-bottom: 12px; }
   .board-note { text-align: center; font-size: 12px; color: var(--text-secondary); margin: 4px 0 12px; line-height: 1.5; white-space: pre-line; text-wrap: balance; }
   @media (min-width: 900px) {
     .boards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
@@ -271,7 +272,17 @@
   .search-go:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
   /* 表示設定ボタンと、今の集計条件 */
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
-  .cond { min-width: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+  /* 今の集計条件(期間・表示・集計の対象)を短く出すチップ。押すと表示設定を開く */
+  .cond-chips {
+    display: inline-flex; align-items: center; gap: 4px; flex: none; height: 44px; padding: 0 2px;
+    border: 0; border-radius: 12px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .cond-chips:focus { outline: none; }
+  .cond-chips:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+  .chip {
+    display: inline-block; padding: 5px 9px; border-radius: 999px; background: var(--radio-on-bg);
+    color: var(--text-primary); font-size: 13px; font-weight: 700; line-height: 1.2; white-space: nowrap;
+  }
   .settings-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
     height: 44px; padding: 0 14px 0 12px; border: 1px solid var(--border); border-radius: 12px;
@@ -337,7 +348,6 @@
     <h1>学マス楽曲レポート</h1>
     <div class="updated-box">
       <div class="updated" id="updated"></div>
-      <div class="updated-note" id="updatedNote" hidden>再生回数は約1時間ごとに取得しています。YouTube上の現在の数字とは、取得してから増えた分だけずれます。</div>
     </div>
   </header>
 
@@ -365,11 +375,11 @@
           <input type="search" id="searchInput" placeholder="曲名・アイドル名" aria-label="曲名・アイドル名で検索" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
           <button type="button" class="search-close hidden" id="searchClose" aria-label="検索語を消す">×</button>
         </div>
+        <button type="button" class="cond-chips" id="cond" aria-controls="settingsPanel"></button>
         <button type="button" class="search-go" id="searchGo">検索</button>
       </div>
-      <div class="toolbar">
+      <div class="toolbar" id="toolbar">
         <button type="button" class="settings-btn" id="settingsBtn" aria-expanded="false" aria-controls="settingsPanel"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>表示設定</span></button>
-        <div class="cond" id="cond"></div>
       </div>
       <!-- 表示設定ボタンで開閉する設定(期間・表示・MVだけで集計) -->
       <div class="settings" id="settingsPanel">
@@ -634,7 +644,6 @@ function apply(data) {
   if (state.updatedAt) {
     const t = new Date(state.updatedAt);
     $("updated").textContent = "最終更新 " + t.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    $("updatedNote").hidden = false;
   }
   if (!state.hasPrev && !DEMO) showStatus(msg("デイリーは明日から表示されます。", "日付が変わると、前日の最後の記録からの増加を表示します。"));
   renderKpis();
@@ -854,7 +863,7 @@ function renderSongs(box) {
     const value = metric(v);
     const rank = searching ? 0 : levels.indexOf(value) + 1;
     const ranked = value > 0 && rank >= 1 && rank <= 3;
-    const row = songRow(v, songColor(v), maxVal, idx, { rank: ranked ? rank : 0, showSinger: true, queueThumb: true, hint: "タップで動画一覧" });
+    const row = songRow(v, songColor(v), maxVal, idx, { rank: ranked ? rank : 0, showSinger: true, queueThumb: true });
     row.setAttribute("aria-label", `${ranked ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " デイリー " : " 累計 "}${fmt.format(value)}回。タップで動画一覧`);
     row.addEventListener("click", openIn(currentView(), () => openSong(v)));
     box.append(row);
@@ -870,23 +879,21 @@ function renderBars() {
   } else withView(state.view, () => renderBoard($("bars")));
 }
 
-// 今の集計条件(表示設定を開かなくてもわかるように、表示設定ボタンの横に出す)。PCは両方の期間を並べるので期間は出さない
+// 今の集計条件を、検索欄の横に短いチップで出す(デイリー/累計・曲/アイドル・全/MV)。
+// PCは両方の期間を並べるので期間は出さない。「全」は MV・音源・インストの合算、「MV」は MVのみ
 function renderCond() {
-  const parts = [];
-  if (!isWide()) parts.push(state.view === "today" ? "デイリー" : "累計");
-  parts.push(state.unit === "song" ? "曲ごと" : "アイドルごと");
-  parts.push(state.mvOnly ? "MVのみで集計中" : "MV・音源・インストを合算中");
-  $("cond").textContent = parts.join(" · ");
+  const chips = [], words = [];
+  if (!isWide()) { const v = state.view === "today" ? "デイリー" : "累計"; chips.push(v); words.push(v); }
+  chips.push(state.unit === "song" ? "曲" : "アイドル"); words.push(state.unit === "song" ? "曲ごと" : "アイドルごと");
+  chips.push(state.mvOnly ? "MV" : "全"); words.push(state.mvOnly ? "MVのみで集計" : "MV・音源・インストを合算");
+  const box = $("cond");
+  box.textContent = "";
+  for (const c of chips) { const e = document.createElement("span"); e.className = "chip"; e.textContent = c; box.append(e); }
+  box.setAttribute("aria-label", "今の表示:" + words.join("、") + "。押すと表示設定を開く");
 }
-// ボードの見出しの下の注記。デイリーの定義は data.json の prevDate(前日の最後の記録の日付)から書く
-function boardNote(today) {
-  const p = (state.prevDate || "").split("-");
-  const since = p.length === 3 ? `${+p[1]}/${+p[2]}` : "前日";
-  const lines = [];
-  if (today) lines.push(`${since}の最後の記録から最終更新までに増えた回数`);
-  else lines.push("最終更新の時点の回数" + (state.hasPrev ? "。「+」はデイリーの増加分" : ""));
-  if (state.unit === "idol") lines.push("アイドル別はソロ曲のみ合計(ユニット曲・全体曲は含みません)");
-  return lines.join("\n");
+// ボードの見出しの下の注記。アイドル別のときだけ、合計の範囲を出す
+function boardNote() {
+  return state.unit === "idol" ? "アイドル別はソロ曲のみ合計(ユニット曲・全体曲は含みません)" : "";
 }
 
 function renderBoard(box) {
@@ -894,7 +901,7 @@ function renderBoard(box) {
   const today = isToday();
   const head = box.closest(".board").querySelector(".board-head");
   head.querySelector("h2").textContent = today ? "デイリー" : "累計";
-  head.querySelector(".board-note").textContent = boardNote(today);
+  head.querySelector(".board-note").textContent = boardNote();
   if (today && !state.hasPrev) {
     const e = document.createElement("div"); e.className = "today-note"; e.textContent = "デイリーのランキングは明日から表示されます。";
     box.append(e);
@@ -934,8 +941,7 @@ function renderBoard(box) {
     const nameText = document.createElement("span");
     nameText.append(document.createTextNode(s.name));
     if (today && s.value > 0 && rank <= 3) nameText.append(crownEl(rank));
-    const hint = document.createElement("span"); hint.className = "tap-hint"; hint.textContent = "タップで曲ごとの内訳";
-    name.append(nameText, hint);
+    name.append(nameText);
     const track = document.createElement("div");
     track.className = "itrack";
     if (s.value > 0) {
@@ -1013,7 +1019,7 @@ function openDetail(idol) {
       body.append(e);
     }
     list.forEach((v) => {
-      const row = songRow(v, idol.color, maxViews, rowIdx++, { hint: "タップで動画一覧" });
+      const row = songRow(v, idol.color, maxViews, rowIdx++);
       row.setAttribute("aria-label", `${v.title}(${v.singer})${isToday() ? " デイリー " : " 累計 "}${fmt.format(metric(v))}回。タップで動画一覧`);
       row.addEventListener("click", () => openSong(v, { back: () => openDetail(idol) }));
       body.append(row);
@@ -1039,7 +1045,7 @@ function openSong(song, opts = {}) {
   const maxViews = Math.max(1, ...song.members.map(metric));
   song.members.forEach((m, i) => {
     const label = TYPE_LABELS[typeOf(m)];
-    const row = songRow(m, color, maxViews, i, { href: youtubeUrl(m.id), label, hint: "YouTubeで開く" });
+    const row = songRow(m, color, maxViews, i, { href: youtubeUrl(m.id), label });
     row.setAttribute("aria-label", `${label} ${song.title}${isToday() ? " デイリー " : " 累計 "}${fmt.format(metric(m))}回。YouTubeで開く`);
     body.append(row);
   });
@@ -1083,6 +1089,15 @@ function setSettingsOpen(open) {
 }
 const settingsOpen = () => $("settingsBtn").getAttribute("aria-expanded") === "true";
 $("settingsBtn").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
+$("cond").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
+// チップは検索欄の横に出す。狭い画面(600px以下)では検索欄が狭くなりすぎるので、表示設定ボタンの横に移す
+const NARROW = matchMedia("(max-width: 600px)");
+function placeCond() {
+  if (NARROW.matches) $("toolbar").append($("cond"));
+  else $("searchGo").before($("cond"));
+}
+placeCond();
+NARROW.addEventListener("change", placeCond);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && settingsOpen()) { setSettingsOpen(false); $("settingsBtn").focus({ preventScroll: true }); }
 });
