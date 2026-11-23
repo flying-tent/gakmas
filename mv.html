@@ -321,7 +321,6 @@
         <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
         <div class="kpi-top-info">
           <div class="value" id="kpiTop">–</div>
-          <div class="diff" id="kpiTopTotal"></div>
           <div class="top-title" id="kpiTopTitle"></div>
           <div class="detail" id="kpiTopDetail"></div>
         </div>
@@ -655,10 +654,8 @@ function renderKpis() {
   const total = vs.reduce((s, v) => s + metric(v), 0);
   if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total, todayFmt());
   diffEl($("kpiTotalDiff"), today ? null : sumDiff(vs));
-  if (showViewsToo()) $("kpiTotalDiff").textContent = fmt.format(vs.reduce((s, v) => s + v.views, 0));
   const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
   if (top) countUp($("kpiTop"), metric(top), todayFmt()); else $("kpiTop").textContent = "–";
-  $("kpiTopTotal").textContent = top && showViewsToo() ? fmt.format(top.views) : "";
   $("kpiTopTitle").textContent = top ? top.title : "";
   $("kpiTopDetail").textContent = top ? top.singer : "";
   const th = $("kpiTopThumb");
@@ -725,7 +722,8 @@ function withView(view, fn) {
 // 表の行をタップしたら、その表の期間のままポップアップを開く(閉じると元に戻る)
 const openIn = (view, fn) => () => { viewOverride = view; fn(); };
 const metric = (v) => (isToday() ? (v.diff ?? 0) : v.views);
-// スマホの「今日」表示では、今日の回数に総再生回数(累計)の数字だけを併記する(PCの2つの表では出さない)
+// スマホの「今日」表示では、ランキングとポップアップの今日の回数に総再生回数(累計)の数字だけを併記する
+// (上のカードとPCの2つの表では出さない)
 const showViewsToo = () => isToday() && !isWide();
 // 併記するときは、今日の回数に「+」を付けて総再生回数と見分けやすくする
 const todayFmt = () => (showViewsToo() ? (n) => "+" + fmt.format(n) : undefined);
