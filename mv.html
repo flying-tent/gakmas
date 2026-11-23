@@ -234,6 +234,7 @@
   .diff.new { color: var(--series-1); font-weight: 700; }
   .kpi .diff, .ival + .diff { text-align: right; }
   .s-views .diff { display: inline; margin-left: 8px; }
+  .s-views .diff.lead { margin: 0 8px 0 0; }
   .unit { font-size: .6em; font-weight: 400; margin-left: .12em; letter-spacing: .02em; }
   .d-empty { color: var(--text-muted); font-size: 13px; padding: 8px 4px; }
 
@@ -927,10 +928,10 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, isToday() && !v.isNew ? null : v.diff, { isNew: v.isNew, delay: idx * 40 });
   n.append(nd);
   if (showViewsToo()) {
-    // 新曲は「NEW」の右に並べる
+    // 新曲は「NEW」をいちばん左に出し、「NEW +今日の回数 総再生回数」の順にする
     const nt = nd.textContent ? document.createElement("span") : nd;
     nt.className = "diff"; nt.textContent = fmt.format(v.views);
-    if (nt !== nd) n.append(nt);
+    if (nt !== nd) { n.prepend(nd); nd.classList.add("lead"); n.append(nt); }
   }
   info.append(t);
   if (!opts.label) info.append(m);
