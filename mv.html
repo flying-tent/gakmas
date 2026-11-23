@@ -321,6 +321,7 @@
         <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
         <div class="kpi-top-info">
           <div class="value" id="kpiTop">–</div>
+          <div class="diff" id="kpiTopTotal"></div>
           <div class="top-title" id="kpiTopTitle"></div>
           <div class="detail" id="kpiTopDetail"></div>
         </div>
@@ -652,10 +653,12 @@ function renderKpis() {
   const noData = today && !state.hasPrev;
   $("kpiTotalLabel").textContent = (today ? "今日の再生回数" : "総再生回数") + (state.mvOnly ? "(MVのみ)" : "");
   const total = vs.reduce((s, v) => s + metric(v), 0);
-  if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total);
+  if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total, todayFmt());
   diffEl($("kpiTotalDiff"), today ? null : sumDiff(vs));
+  if (showViewsToo()) $("kpiTotalDiff").textContent = fmt.format(vs.reduce((s, v) => s + v.views, 0));
   const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
-  if (top) countUp($("kpiTop"), metric(top)); else $("kpiTop").textContent = "–";
+  if (top) countUp($("kpiTop"), metric(top), todayFmt()); else $("kpiTop").textContent = "–";
+  $("kpiTopTotal").textContent = top && showViewsToo() ? fmt.format(top.views) : "";
   $("kpiTopTitle").textContent = top ? top.title : "";
   $("kpiTopDetail").textContent = top ? top.singer : "";
   const th = $("kpiTopThumb");
@@ -722,6 +725,11 @@ function withView(view, fn) {
 // 表の行をタップしたら、その表の期間のままポップアップを開く(閉じると元に戻る)
 const openIn = (view, fn) => () => { viewOverride = view; fn(); };
 const metric = (v) => (isToday() ? (v.diff ?? 0) : v.views);
+// スマホの「今日」表示では、今日の回数に総再生回数(累計)の数字だけを併記する(PCの2つの表では出さない)
+const showViewsToo = () => isToday() && !isWide();
+// 併記するときは、今日の回数に「+」を付けて総再生回数と見分けやすくする
+const todayFmt = () => (showViewsToo() ? (n) => "+" + fmt.format(n) : undefined);
+const viewsLabel = (n) => (showViewsToo() ? `、総再生回数 ${fmt.format(n)}回` : "");
 
 // 1〜3位の王冠(金・銀・銅)
 const CROWN_COLORS = [
@@ -814,7 +822,7 @@ function renderSongs(box) {
     const rank = searching ? 0 : levels.indexOf(value) + 1;
     const ranked = value > 0 && rank >= 1 && rank <= 3;
     const row = songRow(v, songColor(v), maxVal, idx, { rank: ranked ? rank : 0, showSinger: true, queueThumb: true });
-    row.setAttribute("aria-label", `${ranked ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(value)}回。タップで動画の一覧`);
+    row.setAttribute("aria-label", `${ranked ? rank + "位 " : ""}${v.title}(${v.singer})${today ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(value)}回${viewsLabel(v.views)}。タップで動画の一覧`);
     row.addEventListener("click", openIn(currentView(), () => openSong(v)));
     box.append(row);
   });
@@ -860,7 +868,7 @@ function renderBoard(box) {
     row.className = "irow";
     const rank = searching ? 99 : levels.indexOf(s.value) + 1;
     row.setAttribute("aria-label", today
-      ? `${rank <= 3 && s.value > 0 ? rank + "位 " : ""}${s.name} 今日の再生回数 ${fmt.format(s.value)}回。タップで曲ごとの回数`
+      ? `${rank <= 3 && s.value > 0 ? rank + "位 " : ""}${s.name} 今日の再生回数 ${fmt.format(s.value)}回${viewsLabel(s.total)}。タップで曲ごとの回数`
       : `${s.name} ソロ曲合計 ${fmt.format(s.total)}回` + (state.hasPrev && s.count ? `、前日比 ${s.diff >= 0 ? "+" : "−"}${fmt.format(Math.abs(s.diff))}` : "") + "。タップで曲ごとの回数");
 
     const col = document.createElement("div");
@@ -880,10 +888,11 @@ function renderBoard(box) {
     }
     const val = document.createElement("div");
     val.className = "ival";
-    if (s.count) countUp(val, s.value, undefined, idx * 40); else val.textContent = "-";
+    if (s.count) countUp(val, s.value, todayFmt(), idx * 40); else val.textContent = "-";
     const dv = document.createElement("div");
     dv.className = "diff";
     if (s.count && !today) diffEl(dv, s.diff, { delay: idx * 40 });
+    if (s.count && showViewsToo()) dv.textContent = fmt.format(s.total);
     col.append(name, track, val, dv);
     row.append(col);
     row.addEventListener("click", openIn(currentView(), () => openDetail(s.idol)));
@@ -916,9 +925,15 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   const bar = document.createElement("div"); bar.className = "s-bar";
   bar.style.background = color; growBar(bar, Math.max(1, (metric(v) / maxViews) * 100), idx * 40);
   const n = document.createElement("div"); n.className = "s-views";
-  const nn = document.createElement("span"); n.append(nn); countUp(nn, metric(v), undefined, idx * 40);
+  const nn = document.createElement("span"); n.append(nn); countUp(nn, metric(v), todayFmt(), idx * 40);
   const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, isToday() && !v.isNew ? null : v.diff, { isNew: v.isNew, delay: idx * 40 });
   n.append(nd);
+  if (showViewsToo()) {
+    // 新曲は「NEW」の右に並べる
+    const nt = nd.textContent ? document.createElement("span") : nd;
+    nt.className = "diff"; nt.textContent = fmt.format(v.views);
+    if (nt !== nd) n.append(nt);
+  }
   info.append(t);
   if (!opts.label) info.append(m);
   info.append(bar, n);
@@ -932,7 +947,7 @@ function openDetail(idol) {
   const total = solo.reduce((s, v) => s + metric(v), 0);
   const maxViews = Math.max(1, ...solo.map(metric), ...group.map(metric));
 
-  setDetailHead({ name: idol.name, color: idol.color, total: solo.length ? total : null, diff: solo.length && !isToday() ? sumDiff(solo) : null });
+  setDetailHead({ name: idol.name, color: idol.color, total: solo.length ? total : null, diff: solo.length && !isToday() ? sumDiff(solo) : null, views: solo.length ? solo.reduce((s, v) => s + v.views, 0) : null });
 
   const body = $("detailBody");
   body.textContent = "";
@@ -946,7 +961,7 @@ function openDetail(idol) {
     }
     list.forEach((v) => {
       const row = songRow(v, idol.color, maxViews, rowIdx++);
-      row.setAttribute("aria-label", `${v.title}(${v.singer})${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(v))}回。タップで動画の一覧`);
+      row.setAttribute("aria-label", `${v.title}(${v.singer})${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(v))}回${viewsLabel(v.views)}。タップで動画の一覧`);
       row.addEventListener("click", () => openSong(v, { back: () => openDetail(idol) }));
       body.append(row);
     });
@@ -963,7 +978,7 @@ function openSong(song, opts = {}) {
   const color = songColor(song);
   setDetailHead({
     name: song.title, sub: song.singer, color, back: opts.back,
-    total: metric(song), diff: isToday() ? null : song.diff, isNew: song.isNew,
+    total: metric(song), diff: isToday() ? null : song.diff, isNew: song.isNew, views: song.views,
   });
   const body = $("detailBody");
   body.textContent = "";
@@ -972,19 +987,21 @@ function openSong(song, opts = {}) {
   song.members.forEach((m, i) => {
     const label = TYPE_LABELS[typeOf(m)];
     const row = songRow(m, color, maxViews, i, { href: youtubeUrl(m.id), label });
-    row.setAttribute("aria-label", `${label} ${song.title}${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(m))}回。YouTubeで開く`);
+    row.setAttribute("aria-label", `${label} ${song.title}${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(m))}回${viewsLabel(m.views)}。YouTubeで開く`);
     body.append(row);
   });
   showDetail();
 }
 
 // ポップアップの上の部分。total が null のときは「-」、back を渡すと「戻る」ボタンを出す
-function setDetailHead({ name, sub = "", color, total, diff, isNew = false, back = null }) {
+// views:スマホの「今日」表示で併記する総再生回数
+function setDetailHead({ name, sub = "", color, total, diff, isNew = false, views = null, back = null }) {
   $("detailName").textContent = name;
   $("detailSub").textContent = sub;
   $("detail").style.borderColor = color;
-  if (total != null) countUp($("detailTotal"), total); else $("detailTotal").textContent = "-";
+  if (total != null) countUp($("detailTotal"), total, todayFmt()); else $("detailTotal").textContent = "-";
   diffEl($("detailDiff"), diff, { isNew });
+  if (views != null && showViewsToo()) $("detailDiff").textContent = fmt.format(views);
   $("detailHead").classList.toggle("with-back", !!back);
   detailBack = back;
 }
