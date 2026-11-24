@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -14,53 +15,29 @@
   ?demo を付けて開くとダミー値で表示します。
 -->
 <style>
+  /* 画面はダークモード固定(端末の設定に関係なく暗い紫の配色で出す) */
   :root {
-    color-scheme: light;
-    --surface-0: #f4f4f2;
-    --surface-1: #fcfcfb;
-    --border: #e2e1dc;
-    --grid: #ecebe7;
-    --text-primary: #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted: #7a7974;
-    --series-1: #2a78d6;
-    --series-1-hover: #4a8fe0;
-    --accent-soft: #e8f0fb;
-    --critical: #c8302f;
-    --card-bg: #fffefc;
-    --card-line: #f7cfb0;
-    --title-ink: #6b6966;
-    --value-ink: #8f8d89;
-    --row-hover: #fff3ea;
-    --radio-panel: #E7E6EA;
-    --radio-on-bg: #FBEBC8;
-    --radio-ring: #9B9A9F;
-    --radio-dot: #EE7F2E;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color-scheme: dark;
-      --surface-0: #121211;
-      --surface-1: #1a1a19;
-      --border: #2e2e2c;
-      --grid: #262624;
-      --text-primary: #f0efec;
-      --text-secondary: #c3c2b7;
-      --text-muted: #8e8d86;
-      --series-1: #3987e5;
-      --series-1-hover: #5a9bea;
-      --accent-soft: #1d2a3b;
-      --critical: #e66767;
-      --card-bg: #1c1b1a;
-      --card-line: #5a4232;
-      --title-ink: #d6d4cf;
-      --value-ink: #b4b2ac;
-      --row-hover: #2a2420;
-      --radio-panel: #26262A;
-      --radio-on-bg: #43351F;
-      --radio-ring: #8E8D93;
-      --radio-dot: #F08A3E;
-    }
+    color-scheme: dark;
+    --surface-0: #16111f;
+    --surface-1: #201a2b;
+    --border: #4b3b66;
+    --grid: #2a2337;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #958ea3;
+    --series-1: #3987e5;
+    --series-1-hover: #5a9bea;
+    --accent-soft: #1d2a3b;
+    --critical: #e66767;
+    --card-bg: #1e1829;
+    --card-line: #6e5296;
+    --title-ink: #d6d4cf;
+    --value-ink: #b4b2ac;
+    --row-hover: #2c2238;
+    --radio-panel: #2a2238;
+    --radio-on-bg: #43351F;
+    --radio-ring: #8E8D93;
+    --radio-dot: #F08A3E;
   }
   * { box-sizing: border-box; }
   body {
@@ -165,7 +142,7 @@
     .boards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
     .board-head, .board-today { display: block; }
     .board-head h2 { margin: 4px 0 12px; }
-    .period-group { display: none; }
+    .period-group, .conditions .chip-period { display: none; }
     .switches { grid-template-columns: minmax(0, 1fr); }
   }
 
@@ -262,12 +239,11 @@
      (高さは grid の 0fr → 1fr で滑らかに変える) */
   .settings { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .2s ease; }
   .settings.open { grid-template-rows: 1fr; }
-  /* 影が切れないように左右と下に余白を取る(閉じているときは余白も 0) */
-  .settings-clip { min-height: 0; overflow: hidden; margin: 0 -14px; padding: 0 14px; transition: padding .2s ease; }
-  .settings.open .settings-clip { padding: 0 14px 20px; }
+  /* 開いているときだけ下に余白を取る(閉じているときは 0) */
+  .settings-clip { min-height: 0; overflow: hidden; transition: padding .2s ease; }
+  .settings.open .settings-clip { padding: 0 0 12px; }
   .settings-card {
     padding: 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, .10), 0 1px 4px rgba(0, 0, 0, .06);
     opacity: 0; visibility: hidden; transform: translateY(-8px);
     transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
   }
@@ -276,6 +252,19 @@
   @media (prefers-reduced-motion: reduce) {
     .settings, .settings-clip, .settings-card, .settings.open .settings-card { transition: none; transform: none; }
   }
+  /* 今の表示条件:設定の下(閉じているときは検索欄のすぐ下)に常にチップで出す。タップで設定を開け閉めする */
+  .conditions {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 12px; padding: 2px 0;
+    border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .conditions:focus { outline: none; }
+  .conditions:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; border-radius: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface-1); color: var(--text-secondary); font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap;
+  }
+  .chip-mv { background: var(--radio-on-bg); color: var(--text-primary); }
   .settings-btn svg { width: 20px; height: 20px; display: block; }
   .settings-btn[aria-expanded="true"] { background: var(--radio-on-bg); color: var(--text-primary); }
   .settings-btn:focus { outline: none; }
@@ -364,6 +353,12 @@
         <label class="mv-only"><span>MVだけで集計</span><input type="checkbox" id="mvOnly" role="switch"></label>
         </div></div>
       </div>
+      <!-- 今の表示条件(期間・表示・MVだけで集計)。タップで上の設定を開け閉めする -->
+      <button type="button" class="conditions" id="conditions" aria-expanded="false" aria-controls="settingsPanel">
+        <span class="chip chip-period" id="chipPeriod"></span>
+        <span class="chip" id="chipUnit"></span>
+        <span class="chip chip-mv hidden" id="chipMv">MVのみ</span>
+      </button>
       <div class="boards">
         <div class="board" aria-label="累計のランキング">
           <div class="board-head"><h2>累計</h2></div>
@@ -1056,15 +1051,29 @@ document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addE
   state[r.name] = r.value;
   if (r.name === "unit") updateSearchPlaceholder();
   if (r.name === "view") renderKpis();
+  renderConditions();
   renderBars();
 }));
+// 検索欄の下のチップ:今の表示条件(期間はスマホだけ。PCでは2つの表の見出しでわかるので隠す)
+const PERIOD_LABELS = { today: "今日", total: "累計" };
+const UNIT_LABELS = { song: "曲", idol: "アイドル" };
+function renderConditions() {
+  $("chipPeriod").textContent = PERIOD_LABELS[state.view];
+  $("chipUnit").textContent = UNIT_LABELS[state.unit];
+  $("chipMv").classList.toggle("hidden", !state.mvOnly);
+  const parts = [...(isWide() ? [] : [PERIOD_LABELS[state.view]]), UNIT_LABELS[state.unit], ...(state.mvOnly ? ["MVのみ"] : [])];
+  $("conditions").setAttribute("aria-label", `表示条件:${parts.join("・")}。タップで切り替えを${settingsOpen() ? "閉じる" : "開く"}`);
+}
 // フィルタボタン:検索欄の下の設定を開け閉めする(Esc でも閉じる)
 function setSettingsOpen(open) {
   $("settingsBtn").setAttribute("aria-expanded", String(open));
   $("settingsPanel").classList.toggle("open", open);
+  $("conditions").setAttribute("aria-expanded", String(open));
+  renderConditions();
 }
 const settingsOpen = () => $("settingsBtn").getAttribute("aria-expanded") === "true";
 $("settingsBtn").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
+$("conditions").addEventListener("click", () => setSettingsOpen(!settingsOpen()));
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && settingsOpen()) { setSettingsOpen(false); $("settingsBtn").focus({ preventScroll: true }); }
 });
@@ -1072,9 +1081,11 @@ document.addEventListener("keydown", (e) => {
 // MVだけで集計
 state.mvOnly = loadMvOnly();
 $("mvOnly").checked = state.mvOnly;
+renderConditions();
 $("mvOnly").addEventListener("change", (e) => {
   state.mvOnly = e.target.checked;
   saveMvOnly(state.mvOnly);
+  renderConditions();
   regroup();
   renderKpis();
   renderBars();
@@ -1124,6 +1135,7 @@ dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
 dlg.addEventListener("close", () => { viewOverride = null; });
 // 画面の幅が900pxをまたいだら描き直す(1つの表 ⇄ 2つの表)
 WIDE.addEventListener("change", () => {
+  renderConditions();
   if (!state.videos.length) return;
   withView(null, renderKpis);
   renderBars();
