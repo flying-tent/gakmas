@@ -1082,8 +1082,8 @@ function renderSong(song, opts) {
   // 並びは MV → 音源 → ソロ版 → インスト(data.json で並んでいる順)
   const maxViews = Math.max(1, ...song.members.map(metric));
   song.members.forEach((m, i) => {
-    // ソロ版は「氷渡香名江 ソロ」、ゲームサイズは「ゲームサイズ」のラベルを足して見分ける
-    const labels = [m.solo ? `${m.solo} ソロ` : TYPE_LABELS[typeOf(m)], ...(m.game ? ["ゲームサイズ"] : [])];
+    // ソロ版はアイドル名(「氷渡香名江」)だけのラベル、ゲームサイズは「ゲームサイズ」のラベルを足して見分ける
+    const labels = [m.solo || TYPE_LABELS[typeOf(m)], ...(m.game ? ["ゲームサイズ"] : [])];
     const label = labels.join(" ");
     // ソロ版の棒グラフは、歌っているアイドルの色にする
     const barColor = (m.solo && IDOLS.find((x) => x.name === m.solo)?.color) || color;
