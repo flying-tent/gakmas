@@ -69,17 +69,20 @@
   .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text-primary); font-weight: 600; }
 
   /* KPI */
-  .kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-bottom: 16px; }
-  #kpiTotal { text-align: right; }
-  #kpiTop, #kpiTopTitle, #kpiTopDetail { text-align: right; }
-  .kpi-top { display: grid; grid-template-columns: 176px auto minmax(0, 1fr); gap: 12px; align-items: center; text-decoration: none; color: inherit; cursor: pointer; }
+  /* PCは下の表と同じく、左の列に累計・右の列にデイリーの2枚(合計と最多再生MV)を縦に並べる */
+  .kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto; grid-auto-flow: column; gap: 12px 24px; margin-bottom: 16px; }
+  #kpiTotal, #kpiTotalD { text-align: right; }
+  #kpiTop, #kpiTopTitle, #kpiTopDetail, #kpiTopD, #kpiTopTitleD, #kpiTopDetailD { text-align: right; }
+  .kpi-top { display: grid; grid-template-columns: 136px auto minmax(0, 1fr); gap: 12px; align-items: center; text-decoration: none; color: inherit; cursor: pointer; }
   .crown { width: 34px; height: 26px; align-self: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.15)); }
   .kpi-top:hover { border-color: var(--text-muted); }
   .kpi-top:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
   .kpi-thumb .thumb { width: 100%; }
   .kpi .top-title { font-weight: 700; font-size: 15px; line-height: 1.35; margin-top: 2px; }
-  @media (max-width: 640px) {
-    .kpis { grid-template-columns: minmax(0, 1fr); }
+  /* スマホ表示とPC表示の境目は900pxの1つだけ(JSの WIDE と同じ)。中間の表示は作らない */
+  @media (max-width: 899.98px) {
+    .kpis { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; gap: 12px; }
+    .kpi-daily { display: none !important; }
     .kpi-top { grid-template-columns: 112px auto minmax(0, 1fr); gap: 8px; }
     .crown { width: 28px; height: 21px; }
   }
@@ -144,6 +147,22 @@
     .board-head h2 { margin: 4px 0 12px; }
     .period-group, .conditions .chip-period { display: none; }
     .switches { grid-template-columns: minmax(0, 1fr); }
+    /* 検索欄を左半分、切り替え(曲/アイドル・MVだけで集計)を右半分に並べ、常に出しておく。
+       左右の幅とすき間は下の表とそろえる。フィルタボタンと条件のチップは使わないので隠す */
+    .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 24px; margin: 0 0 16px; }
+    .toolbar .search { min-width: 0; margin: 0; }
+    .toolbar .settings-btn, .toolbar .conditions { display: none; }
+    .toolbar .settings { display: block; min-width: 0; }
+    .toolbar .settings-clip, .toolbar .settings.open .settings-clip { overflow: visible; padding: 0; transition: none; }
+    .toolbar .settings-card {
+      display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent;
+      opacity: 1; visibility: visible; transform: none; transition: none;
+    }
+    .toolbar .switches { flex: 1; min-width: 0; margin: 0; }
+    .toolbar .mv-only { flex: none; }
+    .toolbar .radio-group { padding: 2px; }
+    .toolbar .radio { min-height: 40px; padding: 6px 14px; }
+    .toolbar .mv-only { margin: 0; min-height: 44px; }
   }
 
   /* Detail dialog */
@@ -168,6 +187,9 @@
   .d-total { grid-column: 2; grid-row: 1; text-align: right; font-size: 18px; font-weight: 700; line-height: 1.4; font-variant-numeric: tabular-nums; }
   .d-diff { grid-column: 2; grid-row: 2; text-align: right; }
   .d-close { grid-column: 3; grid-row: 1 / span 2; }
+  /* 下の行(歌っている人)が無いとき(アイドルの画面)は、名前を右の2つの数字の上下中央にそろえる */
+  .d-head.no-sub .d-name { grid-row: 1 / span 2; }
+  .d-head.no-sub .d-sub { display: none; }
   /* 「戻る」があるとき(アイドルの画面から曲を開いたとき)は左端に1列足す */
   .d-back { display: none; }
   .d-head.with-back { grid-template-columns: auto minmax(0, 1fr) auto auto; }
@@ -291,7 +313,7 @@
   .search-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 24px 0; }
   .foot { margin-top: 24px; text-align: center; }
 
-  @media (max-width: 640px) {
+  @media (max-width: 899.98px) {
     .irow { padding: 5px 4px; }
     .ival { font-size: 18px; }
     .song-row { grid-template-columns: 112px 1fr; gap: 10px; }
@@ -320,9 +342,21 @@
           <div class="detail" id="kpiTopDetail"></div>
         </div>
       </div>
+      <div class="kpi kpi-daily"><div class="label" id="kpiTotalLabelD">総再生回数</div><div class="value" id="kpiTotalD">–</div><div class="diff" id="kpiTotalDiffD"></div></div>
+      <div class="kpi kpi-top kpi-daily" id="kpiTopLinkD" role="button" tabindex="0" aria-label="今日の最多再生MV。タップで動画の一覧">
+        <div class="kpi-thumb" id="kpiTopThumbD"></div>
+        <svg class="crown" viewBox="0 0 32 24" aria-label="1位" role="img"><path d="M3 8l6.5 5L16 3l6.5 10L29 8l-2.6 12.5H5.6z" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.4" y="19.2" width="21.2" height="3.4" rx="1.2" fill="#E3A812" stroke="#C98F0A" stroke-width="1.2"/><circle cx="3" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="2.8" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="29" cy="7.5" r="2" fill="#F4BE2C" stroke="#C98F0A" stroke-width="1.2"/><circle cx="16" cy="14" r="1.6" fill="#fff" opacity=".85"/></svg>
+        <div class="kpi-top-info">
+          <div class="value" id="kpiTopD">–</div>
+          <div class="top-title" id="kpiTopTitleD"></div>
+          <div class="detail" id="kpiTopDetailD"></div>
+        </div>
+      </div>
     </section>
 
     <section class="idol-card" aria-label="アイドルごとのソロ曲再生回数(タップで曲ごとの回数)">
+      <!-- 検索欄と表示の切り替え。PCでは1行に並べ、切り替えは常に出しておく -->
+      <div class="toolbar">
       <div class="search" id="search">
         <div class="search-box" id="searchBox" role="search">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
@@ -359,6 +393,7 @@
         <span class="chip" id="chipUnit"></span>
         <span class="chip chip-mv hidden" id="chipMv">MVのみ</span>
       </button>
+      </div>
       <div class="boards">
         <div class="board" aria-label="累計のランキング">
           <div class="board-head"><h2>累計</h2></div>
@@ -657,27 +692,39 @@ function growBar(el, pct, delay = 0) {
 
 
 // 「今日」のときは、総再生回数も最多MVも今日0時からの増加で出す
-let kpiTopSong = null, kpiTopView = null;
+// 上のパネル。スマホは選んだ期間の1組だけ、PCは左に累計・右にデイリーの2組を出す
 function renderKpis() {
-  const vs = state.videos;
-  const today = isToday();
-  const noData = today && !state.hasPrev;
-  $("kpiTotalLabel").textContent = (today ? "今日の再生回数" : "総再生回数") + (state.mvOnly ? "(MVのみ)" : "");
-  const total = vs.reduce((s, v) => s + metric(v), 0);
-  if (noData) $("kpiTotal").textContent = "–"; else countUp($("kpiTotal"), total, todayFmt());
-  diffEl($("kpiTotalDiff"), today ? null : sumDiff(vs));
-  const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
-  if (top) countUp($("kpiTop"), metric(top), todayFmt()); else $("kpiTop").textContent = "–";
-  $("kpiTopTitle").textContent = top ? top.title : "";
-  $("kpiTopDetail").textContent = top ? top.singer : "";
-  // タップしたときに開く曲と、そのときの期間(スマホの今日/累計、PCは累計)
-  kpiTopSong = top;
-  kpiTopView = currentView();
-  const th = $("kpiTopThumb");
-  th.textContent = "";
-  if (top) {
-    th.append(thumbEl(top));
+  if (isWide()) {
+    renderKpiSet("", "total");
+    withViews(() => renderKpiSet("D", "today"));
+  } else {
+    renderKpiSet("", null);
   }
+}
+// sfx:要素の id の末尾("" か "D")。view:その組の期間(null ならスマホで選んでいる期間)
+function renderKpiSet(sfx, view) {
+  const $k = (id) => $(id + sfx);
+  withView(view, () => {
+    const vs = state.videos;
+    const today = isToday();
+    const noData = today && !state.hasPrev;
+    $k("kpiTotalLabel").textContent = (today ? "今日の再生回数" : "総再生回数") + (state.mvOnly ? "(MVのみ)" : "");
+    const total = vs.reduce((s, v) => s + metric(v), 0);
+    if (noData) $k("kpiTotal").textContent = "–"; else countUp($k("kpiTotal"), total, todayFmt());
+    diffEl($k("kpiTotalDiff"), today ? null : sumDiff(vs));
+    const top = noData ? null : vs.reduce((a, b) => (metric(b) > (a ? metric(a) : -1) ? b : a), null);
+    if (top) countUp($k("kpiTop"), metric(top), todayFmt()); else $k("kpiTop").textContent = "–";
+    $k("kpiTopTitle").textContent = top ? top.title : "";
+    $k("kpiTopDetail").textContent = top ? top.singer : "";
+    const link = $k("kpiTopLink");
+    link.setAttribute("aria-label", (today ? "今日の" : "") + "最多再生MV。タップで動画の一覧");
+    // タップしたときに開く曲と、その組の期間
+    link._song = top;
+    link._view = currentView();
+    const th = $k("kpiTopThumb");
+    th.textContent = "";
+    if (top) th.append(thumbEl(top));
+  });
 }
 
 function idolStats() {
@@ -1031,6 +1078,7 @@ function setDetailHead({ name, sub = "", color, total, diff, isNew = false, view
   diffEl($("detailDiff"), diff, { isNew });
   if (views != null && showViewsToo()) viewsEl($("detailDiff"), views);
   $("detailHead").classList.toggle("with-back", !!back);
+  $("detailHead").classList.toggle("no-sub", !sub);
   detailBack = back;
 }
 let detailBack = null;
@@ -1124,11 +1172,13 @@ $("searchInput").addEventListener("keydown", (e) => {
 });
 const dlg = $("detail");
 // 最多再生MVのパネルは、タップで曲の動画一覧を開く(YouTubeは動画一覧の行から開く)
-const openKpiTop = () => { if (kpiTopSong) openIn(kpiTopView, () => openSong(kpiTopSong))(); };
-$("kpiTopLink").addEventListener("click", openKpiTop);
-$("kpiTopLink").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openKpiTop(); }
-});
+for (const link of [$("kpiTopLink"), $("kpiTopLinkD")]) {
+  const open = () => { if (link._song) openIn(link._view, () => openSong(link._song))(); };
+  link.addEventListener("click", open);
+  link.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+  });
+}
 $("detailClose").addEventListener("click", () => dlg.close());
 $("detailBack").addEventListener("click", () => { if (detailBack) detailBack(); });
 dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
