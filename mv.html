@@ -660,11 +660,16 @@ const sumDiff = (list) => list.reduce((s, v) => s + (v.diff || 0), 0);
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const DURATION = 700;
 const ease = (t) => 1 - Math.pow(1 - t, 4); // ease-out(quart)
+// 同じ要素に新しい数字や「-」を書いたら、前のアニメーションは止める(el._count で見分ける)
 function countUp(el, target, format = (n) => fmt.format(n), delay = 0) {
+  const token = {};
+  el._count = token;
   if (REDUCED || !target) { el.textContent = format(target); return; }
   el.textContent = format(0);
   const run = (t0) => {
+    if (el._count !== token) return;
     const step = (now) => {
+      if (el._count !== token) return;
       const t = Math.min(1, (now - t0) / DURATION);
       el.textContent = format(Math.round(target * ease(t)));
       if (t < 1) requestAnimationFrame(step);
@@ -672,6 +677,14 @@ function countUp(el, target, format = (n) => fmt.format(n), delay = 0) {
     requestAnimationFrame(step);
   };
   setTimeout(() => requestAnimationFrame(run), delay);
+}
+// 前日の記録はあるのに、その動画(曲)の前日比が取れないとき(記録を取り始めたばかりの動画など)は「-」と出す
+const noDiff = (v) => state.hasPrev && v.diff == null;
+function dashEl(el) {
+  el._count = null;
+  el.classList.remove("new");
+  el.textContent = "-";
+  return el;
 }
 // 併記する総再生回数も、ほかの数字と同じようにカウントアップする
 // (毎回新しい span に書くので、前のアニメーションが残っていても数字が混ざらない)
@@ -1019,12 +1032,15 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   const bar = document.createElement("div"); bar.className = "s-bar";
   bar.style.background = color; growBar(bar, Math.max(1, (metric(v) / maxViews) * 100), idx * 40);
   const n = document.createElement("div"); n.className = "s-views";
-  const nn = document.createElement("span"); n.append(nn); countUp(nn, metric(v), todayFmt(), idx * 40);
+  const nn = document.createElement("span"); n.append(nn);
+  if (isToday() && noDiff(v)) dashEl(nn); else countUp(nn, metric(v), todayFmt(), idx * 40);
   const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, isToday() ? null : v.diff, { delay: idx * 40 });
+  if (!isToday() && noDiff(v)) dashEl(nd);
   if (showViewsToo()) viewsEl(nd, v.views, idx * 40);
   n.append(nd);
-  // 曲ごとのランキングと動画一覧では、2つめの数字(今日は総再生回数、累計はその日の増加)を右寄せにする
-  if (opts.board || opts.label) n.classList.add("split");
+  // 数字が2つ並ぶときは、2つめの数字(今日は総再生回数、累計はその日の増加)を右寄せにする
+  // (曲ごとのランキング、動画一覧、アイドルの画面の曲の一覧のすべてで同じ)
+  n.classList.add("split");
   info.append(t);
   if (!opts.label) info.append(m);
   info.append(bar, n);
@@ -1075,7 +1091,7 @@ function renderSong(song, opts) {
   const color = songColor(song);
   setDetailHead({
     name: song.title, sub: song.singer, color, back: opts.back,
-    total: metric(song), diff: isToday() ? null : song.diff, isNew: song.isNew, views: song.views,
+    total: metric(song), diff: isToday() ? null : song.diff, isNew: song.isNew, views: song.views, noDiff: noDiff(song),
   });
   const body = $("detailBody");
   body.textContent = "";
@@ -1096,12 +1112,14 @@ function renderSong(song, opts) {
 
 // ポップアップの上の部分。total が null のときは「-」、back を渡すと「戻る」ボタンを出す
 // views:スマホの「今日」表示で併記する総再生回数
-function setDetailHead({ name, sub = "", color, total, diff, isNew = false, views = null, back = null }) {
+// noDiff:前日比が取れない曲(今日の回数・前日比を「-」にする)
+function setDetailHead({ name, sub = "", color, total, diff, isNew = false, views = null, back = null, noDiff = false }) {
   $("detailName").textContent = name;
   $("detailSub").textContent = sub;
   $("detail").style.borderColor = color;
-  if (total != null) countUp($("detailTotal"), total, todayFmt()); else $("detailTotal").textContent = "-";
+  if (total != null && !(noDiff && isToday())) countUp($("detailTotal"), total, todayFmt()); else dashEl($("detailTotal"));
   diffEl($("detailDiff"), diff, { isNew });
+  if (noDiff && !isToday()) dashEl($("detailDiff"));
   if (views != null && showViewsToo()) viewsEl($("detailDiff"), views);
   $("detailHead").classList.toggle("with-back", !!back);
   $("detailHead").classList.toggle("no-sub", !sub);
