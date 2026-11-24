@@ -220,9 +220,9 @@
   button.song-row:focus { outline: none; }
   button.song-row:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
   /* 動画一覧の種類ラベル(MV/音源/インスト) */
-  .v-head { display: flex; align-items: center; gap: 8px; }
+  .v-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
   .v-head .s-meta { margin-top: 0; margin-left: auto; font-weight: 400; }
-  .v-type { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1; padding: 4px 8px; border-radius: 999px; background: var(--grid); color: var(--text-primary); }
+  .v-type { display: inline-block; white-space: nowrap; font-size: 12px; font-weight: 700; line-height: 1; padding: 4px 8px; border-radius: 999px; background: var(--grid); color: var(--text-primary); }
   .song-row .thumb { width: 136px; }
   .s-title { font-weight: 700; font-size: 14px; line-height: 1.35; }
   .s-meta { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
@@ -583,7 +583,7 @@ function buildSong(s, mvOnly) {
   if (!vids.length) return null;
   const members = vids.map((v) => ({
     id: v.id, source: v.type === "mv" ? "mv" : "audio", instrumental: v.type === "inst",
-    published: v.date, views: v.views, diff: v.diff ?? null, isNew: !!v.isNew,
+    published: v.date, views: v.views, diff: v.diff ?? null, isNew: !!v.isNew, game: !!v.game, solo: v.solo || null,
   }));
   const hasDiff = members.some((m) => m.diff != null);
   return {
@@ -727,10 +727,28 @@ function renderKpiSet(sfx, view) {
   });
 }
 
+// そのアイドルのソロ曲。全体曲にまとめたソロ版(「初 [〇〇 Solo ver.]」など)も、
+// そのアイドルが歌っている動画だけを1曲分として足す(曲名は「初 (ソロ)」、タップでその動画だけの一覧)
+function soloSongsOf(name) {
+  const own = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === name);
+  const soloVer = state.videos.flatMap((v) => {
+    const ms = v.members.filter((m) => m.solo === name);
+    if (!ms.length) return [];
+    const hasDiff = ms.some((m) => m.diff != null);
+    return [{
+      id: ms[0].id, title: `${v.title} (ソロ)`, idols: [name], kind: "solo", singer: name,
+      published: ms.map((m) => m.published).sort()[0],
+      views: ms.reduce((n, m) => n + m.views, 0),
+      diff: hasDiff ? ms.reduce((n, m) => n + (m.diff || 0), 0) : null,
+      isNew: ms.every((m) => m.isNew), members: ms,
+    }];
+  });
+  return [...own, ...soloVer];
+}
 function idolStats() {
   return IDOLS.map((idol) => {
     const name = idol.name;
-    const songs = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === name);
+    const songs = soloSongsOf(name);
     const total = songs.reduce((s, v) => s + v.views, 0);
     const top = songs.reduce((a, b) => (b.views > (a?.views ?? -1) ? b : a), null);
     return { idol, name, count: songs.length, total, diff: sumDiff(songs), avg: songs.length ? total / songs.length : 0, max: top?.views || 0, top };
@@ -982,9 +1000,13 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   if (opts.label) {
     // 動画一覧では、種類ラベルの右隣に公開日を出す
     t.classList.add("v-head");
-    const l = document.createElement("span"); l.className = "v-type"; l.textContent = opts.label;
+    // ラベルは1つか複数(ソロ版のゲームサイズなら「氷渡香名江 ソロ」「ゲームサイズ」の2つ)
+    for (const text of [].concat(opts.label)) {
+      const l = document.createElement("span"); l.className = "v-type"; l.textContent = text;
+      t.append(l);
+    }
     const dt = document.createElement("span"); dt.className = "s-meta"; dt.textContent = fmtDate(v.published);
-    t.append(l, dt);
+    t.append(dt);
   } else t.textContent = v.title;
   if (opts.rank) t.append(crownEl(opts.rank));
   // 新曲の「NEW」は曲名(動画一覧では種類ラベル)の行の右端に出す
@@ -1001,8 +1023,8 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   const nd = document.createElement("span"); nd.className = "diff"; diffEl(nd, isToday() ? null : v.diff, { delay: idx * 40 });
   if (showViewsToo()) viewsEl(nd, v.views, idx * 40);
   n.append(nd);
-  // 曲ごとのランキングでは、2つめの数字(今日は総再生回数、累計はその日の増加)を右寄せにする
-  if (opts.board) n.classList.add("split");
+  // 曲ごとのランキングと動画一覧では、2つめの数字(今日は総再生回数、累計はその日の増加)を右寄せにする
+  if (opts.board || opts.label) n.classList.add("split");
   info.append(t);
   if (!opts.label) info.append(m);
   info.append(bar, n);
@@ -1014,7 +1036,7 @@ function openDetail(idol) {
   withViews(() => renderDetail(idol));
 }
 function renderDetail(idol) {
-  const solo = state.videos.filter((v) => v.kind === "solo" && v.idols[0] === idol.name).sort((a, b) => metric(b) - metric(a));
+  const solo = soloSongsOf(idol.name).sort((a, b) => metric(b) - metric(a));
   const group = state.videos.filter((v) => v.kind === "group" && v.idols.includes(idol.name)).sort((a, b) => metric(b) - metric(a));
   const total = solo.reduce((s, v) => s + metric(v), 0);
   const maxViews = Math.max(1, ...solo.map(metric), ...group.map(metric));
@@ -1057,11 +1079,15 @@ function renderSong(song, opts) {
   });
   const body = $("detailBody");
   body.textContent = "";
-  // 並びは MV → 音源 → インスト(data.json で並んでいる順)
+  // 並びは MV → 音源 → ソロ版 → インスト(data.json で並んでいる順)
   const maxViews = Math.max(1, ...song.members.map(metric));
   song.members.forEach((m, i) => {
-    const label = TYPE_LABELS[typeOf(m)];
-    const row = songRow(m, color, maxViews, i, { href: youtubeUrl(m.id), label });
+    // ソロ版はアイドル名(「氷渡香名江」)だけのラベル、ゲームサイズは「ゲームサイズ」のラベルを足して見分ける
+    const labels = [m.solo || TYPE_LABELS[typeOf(m)], ...(m.game ? ["ゲームサイズ"] : [])];
+    const label = labels.join(" ");
+    // ソロ版の棒グラフは、歌っているアイドルの色にする
+    const barColor = (m.solo && IDOLS.find((x) => x.name === m.solo)?.color) || color;
+    const row = songRow(m, barColor, maxViews, i, { href: youtubeUrl(m.id), label: labels });
     row.setAttribute("aria-label", `${label} ${song.title}${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(m))}回${viewsLabel(m.views)}。YouTubeで開く`);
     body.append(row);
   });

@@ -48,9 +48,26 @@ export function detectIdols(singerLine) {
   return [];
 }
 
-// 音源の曲名から「(Instrumental)」などを外す
+// 音源の曲名から「(Instrumental)」や「(Game Size)」などを外す(ゲームサイズとフルサイズを同じ曲にまとめるため)
 export function audioTitle(raw) {
-  return raw.replace(/\s*[-–—]?\s*[(（\[]?\s*(instrumental|off\s*vocal|オフボーカル|カラオケ)\s*[)）\]]?\s*$/i, "").trim();
+  return raw
+    .replace(/\s*[-–—]?\s*[(（\[]?\s*(game\s*size|ゲームサイズ)\s*[)）\]]?\s*$/i, "")
+    .replace(/\s*[-–—]?\s*[(（\[]?\s*(instrumental|off\s*vocal|オフボーカル|カラオケ)\s*[)）\]]?\s*$/i, "")
+    .replace(/\s*[-–—]?\s*[(（\[]?\s*(game\s*size|ゲームサイズ)\s*[)）\]]?\s*$/i, "")
+    .trim();
+}
+// ソロ版の曲名「初 [氷渡香名江 Solo ver.]」を、元の全体曲の曲名「初」と、歌っているアイドルに分ける
+// (ソロ版は元の曲にまとめて合計する)。アイドル名はローマ字でも読み、一覧にない名前は書いてあるまま返す
+const SOLO_VER_PART = /\s*[\[［(（]\s*([^\]］)）]+?)\s*solo\s*ver\.?\s*[\]］)）]/i;
+export function splitSoloVer(title) {
+  const m = title.match(SOLO_VER_PART);
+  if (!m) return { title, solo: null };
+  const base = title.replace(SOLO_VER_PART, "").trim();
+  const name = m[1].replace(/[\s　]/g, "");
+  if (IDOL_NAMES.includes(name)) return { title: base, solo: name };
+  const roman = ` ${m[1].toLowerCase().replace(/[^a-z]+/g, " ").trim()} `;
+  const hit = Object.entries(ROMAJI).find(([, [g, f]]) => roman.includes(` ${g} ${f} `) || roman.includes(` ${f} ${g} `));
+  return { title: base, solo: hit ? hit[0] : m[1].trim() };
 }
 // MV のタイトルから曲名を取り出す
 export function cleanTitle(raw) {
@@ -85,21 +102,27 @@ const jstDate = (iso) => (iso ? new Date(iso).toLocaleDateString("sv-SE", { time
 
 // 動画(合計回数 views・その日の回数 diff・新曲の印 isNew 付き)を曲ごとにまとめる
 // 返す形:[{ title, idols, singer?, videos: [{ id, type, date, views, diff?, isNew? }] }]
-// - videos は MV → 歌入り音源 → インストの順(先頭がサムネイル・リンクの代表)
+// - videos は MV → 歌入り音源 → インストの順(先頭がサムネイル・リンクの代表)。ゲームサイズの音源は game: true、
+//   ソロ版の音源は solo: "歌っているアイドル"(元の全体曲にまとめて合計する)
 // - singer は、アイドル名を「・」でつないだものと違うときだけ付ける(「初星学園」など)
 export function groupSongs(videos) {
   const groups = new Map();
   for (const v of videos) {
     const type = typeOf(v);
-    const title = TITLE_OVERRIDES[v.id] || (type === "mv" ? cleanTitle(v.rawTitle) : audioTitle(v.rawTitle));
+    const split = type === "mv" ? { title: cleanTitle(v.rawTitle), solo: null } : splitSoloVer(audioTitle(v.rawTitle));
+    const title = TITLE_OVERRIDES[v.id] || split.title;
     const key = songKey(title);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ ...v, type, title });
+    groups.get(key).push({ ...v, type, title, solo: split.solo });
   }
   return [...groups.values()].map((members) => {
-    members.sort((a, b) => TYPE_RANK[a.type] - TYPE_RANK[b.type]);
-    const main = members[0];
-    const withSinger = members.find((m) => m.singerLine) || main;
+    // 同じ種類の中では、元の版 → ソロ版(アイドルの並び順)、それぞれフルサイズ → ゲームサイズの順
+    const soloRank = (m) => (m.solo ? 1 + (IDOL_NAMES.includes(m.solo) ? IDOL_NAMES.indexOf(m.solo) : IDOL_NAMES.length) : 0);
+    members.sort((a, b) => TYPE_RANK[a.type] - TYPE_RANK[b.type] || soloRank(a) - soloRank(b) || !!a.gameSize - !!b.gameSize);
+    // 曲の歌唱アイドルは元の版から読む(ソロ版の歌い手は動画ごとの solo に出す)
+    const own = members.filter((m) => !m.solo);
+    const main = own[0] || members[0];
+    const withSinger = own.find((m) => m.singerLine) || main;
     const idols = members.map((m) => OVERRIDES[m.id]).find(Boolean) || detectIdols(withSinger.singerLine);
     const singer = singerLabel(withSinger.singerLine, idols);
     return {
@@ -108,7 +131,7 @@ export function groupSongs(videos) {
       ...(singer !== idols.join("・") ? { singer } : {}),
       videos: members.map((m) => ({
         id: m.id, type: m.type, date: jstDate(m.published), views: m.views,
-        ...(m.diff != null ? { diff: m.diff } : {}), ...(m.isNew ? { isNew: true } : {}),
+        ...(m.diff != null ? { diff: m.diff } : {}), ...(m.isNew ? { isNew: true } : {}), ...(m.gameSize ? { game: true } : {}), ...(m.solo ? { solo: m.solo } : {}),
       })),
     };
   });

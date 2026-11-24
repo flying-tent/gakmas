@@ -21,8 +21,13 @@ const TITLE_FILTER = /Official Music Video/i;
 const SHORTS_TITLE = /#/;
 // 音源のうちインスト(1曲にまとめて数える)
 const INSTRUMENTAL = /instrumental|off\s*vocal|オフボーカル|カラオケ/i;
-// 音源のうち数えない版:別メンバー・ソロなどの ver. 違い、ゲームサイズ、リミックスなど
+// 音源のうち数えない版:別メンバーなどの ver. 違い、ゲームサイズ、リミックスなど
 const AUDIO_EXCLUDE = /\bver\.|\bversion\b|game\s*size|ゲームサイズ|tv\s*size|short\s*ver|remix|リミックス|\bmix\b/i;
+// ただしアイドルのソロ版(「初 [氷渡香名江 Solo ver.]」など)は、元の全体曲(「初」)にまとめて合計する。
+// ゲームサイズとフルサイズは別の動画として数える(リミックスは数えない)
+const SOLO_VER = /solo\s*ver\./i;
+const SOLO_VER_EXCLUDE = /remix|リミックス|\bmix\b/i;
+const GAME_SIZE = /game\s*size|ゲームサイズ/i;
 // state.json に残す日数。その日の回数の計算に要るのは最新と前日の記録だけ(古い日の記録は data/daily/ に残る)
 const KEEP_DAYS = 3;
 // 日ごとの記録の置き場所。月ごとのファイル(YYYY-MM.json)と、動画の情報(videos.json)
@@ -135,6 +140,7 @@ async function audioIdsFromSearch(channelId) {
 }
 
 let audioCount = 0;
+const soloVerTitles = []; // 数えたソロ版の曲名(ログに出して確かめられるように)
 // 曲名の比較用(全角・半角、空白、大文字・小文字の違いを無視)
 const titleKey = (t) => t.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 const mainTitles = new Set();
@@ -149,15 +155,17 @@ for (const channelId of [AUDIO_CHANNEL_ID, ...EXTRA_AUDIO_CHANNEL_IDS]) {
         const sn = v.snippet || {};
         if (sn.channelId && sn.channelId !== channelId) continue;
         const title = sn.title || "";
-        if (!title || AUDIO_EXCLUDE.test(title)) continue;
+        const soloVer = SOLO_VER.test(title) && !SOLO_VER_EXCLUDE.test(title);
+        if (!title || (!soloVer && AUDIO_EXCLUDE.test(title))) continue;
         if (videos.some((x) => x.id === v.id)) continue;
         if (isMain) mainTitles.add(titleKey(title));
         else if (mainTitles.has(titleKey(title))) continue;
         videos.push({
-          id: v.id, source: "audio", instrumental: INSTRUMENTAL.test(title),
+          id: v.id, source: "audio", instrumental: INSTRUMENTAL.test(title), ...(GAME_SIZE.test(title) ? { gameSize: true } : {}),
           rawTitle: title, published: sn.publishedAt, singerLine: audioSingerLine(sn.description),
         });
         audioCount++;
+        if (soloVer) soloVerTitles.push(title);
       }
     }
   } catch (e) {
@@ -186,6 +194,7 @@ const candidates = videos.filter((v) => v.id in views);
 const shortFlags = await Promise.all(candidates.map((v) => (v.source === "mv" ? isShort(v.id) : false)));
 const listed = candidates.filter((_, i) => !shortFlags.at(i));
 for (const id of Object.keys(views)) if (!listed.some((v) => v.id === id)) delete views[id];
+if (soloVerTitles.length) console.log(`ソロ版 ${soloVerTitles.length}本:\n  ` + soloVerTitles.sort().join("\n  "));
 console.log(`MV ${listed.filter((v) => v.source === "mv").length}本、音源 ${audioCount}本(ショート ${candidates.length - listed.length}本を除外)`);
 if (!listed.some((v) => v.source === "mv")) throw new Error("楽曲MVが1本も取得できませんでした");
 
