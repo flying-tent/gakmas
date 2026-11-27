@@ -28,7 +28,8 @@ const AUDIO_EXCLUDE = /\bver\.|\bversion\b|game\s*size|ゲームサイズ|tv\s*s
 const SOLO_VER = /solo\s*ver\./i;
 const SOLO_VER_EXCLUDE = /remix|リミックス|\bmix\b/i;
 const GAME_SIZE = /game\s*size|ゲームサイズ/i;
-// state.json に残す日数。その日の回数の計算に要るのは最新と前日の記録だけ(古い日の記録は data/daily/ に残る)
+// state.json に残す日数。その日の回数の計算に要るのは今日の記録(その日の最初の記録を含む)と、新曲の判定に使う前日の記録だけ
+// (古い日の記録は data/daily/ に残る)
 const KEEP_DAYS = 3;
 // 日ごとの記録の置き場所。月ごとのファイル(YYYY-MM.json)と、動画の情報(videos.json)
 const DAILY_DIR = new URL("../data/daily/", import.meta.url);
@@ -202,12 +203,17 @@ if (!listed.some((v) => v.source === "mv")) throw new Error("楽曲MVが1本も�
 
 const now = new Date();
 const date = now.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }); // YYYY-MM-DD(日本時間)
-const snapshot = { date, at: now.toISOString(), views };
+// first:その日の最初の記録(その日の回数はここからの増加で数える)。その日の最初の取得のときに作り、以降の上書きでも引き継ぐ
+// (この仕組みを入れる前に作られた記録には first がない)
+const existing = (data.snapshots || []).find((s) => s.date === date);
+const first = existing ? existing.first : { at: now.toISOString(), views };
+const snapshot = { date, at: now.toISOString(), views, ...(first ? { first } : {}) };
 data.snapshots = (data.snapshots || []).filter((s) => s.date !== date);
 data.snapshots.push(snapshot);
 data.snapshots.sort((a, b) => a.date.localeCompare(b.date));
 
 // 日ごとの記録を月ごとのファイルに残す。その日の値は毎時上書きされ、日付が変わる直前の値が最後に残る
+// first にはその日の最初の値が残る(その日の回数 = 最後の値 − first の値)
 // (data.json にあるほかの日の記録もまだ残っていなければ入れる。初回の移し替えを兼ねる)
 async function readJson(url, fallback) {
   try { return JSON.parse(await readFile(url, "utf8")); } catch { return fallback; }
