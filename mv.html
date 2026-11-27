@@ -11,7 +11,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!--
   再生回数は GitHub Actions(.github/workflows/update.yml)が毎日取得して data/data.json に記録します。
-  このページはそのファイルを読み、最新の記録と1つ前の記録の差を「前日比」として表示します。
+  このページはそのファイルを読み、その日の最初の記録からの増加を「前日比」(今日の回数)として表示します(計算は取得のときに済ませてある)。
   ?demo を付けて開くとダミー値で表示します。
 -->
 <style>
