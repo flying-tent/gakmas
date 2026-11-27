@@ -1,0 +1,61 @@
+name: X にランキングを投稿
+
+on:
+  schedule:
+    # 12時17分〜17時17分(日本時間)に1時間ごと。投稿するのは1日1回だけで、2回目以降は「投稿済み」で終わる
+    # (混雑で実行が遅れたり抜けたりしても、どこかで投稿できるように何回か動かす)
+    - cron: "17 3-8 * * *"
+  workflow_dispatch: # Actions画面から手動でも実行できる(12時より前は投稿しない)
+    inputs:
+      dry_run:
+        description: "お試し実行(投稿せず、投稿文をログに出すだけ)"
+        type: boolean
+        default: false
+
+# 権限は必要なジョブにだけ渡す（最小権限）
+permissions: {}
+
+concurrency:
+  group: post-x
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 投稿したことの記録(data/x-post.json)をコミットして push するため
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+
+      # 前日のランキングを投稿する(12時(日本時間)を過ぎていて、まだ投稿していないときだけ。判定はスクリプトが行う)
+      - name: X に投稿
+        run: node scripts/post-x.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+
+      # 1件目だけ投稿できて2件目で失敗したときも、1件目の記録は残す(次の実行で残りだけ投稿する)
+      # 再生回数の記録のコミットと同時に push されることがあるので、ぶつかったら最新の main に積み直して push し直す
+      # (変えるのは data/x-post.json だけなので、積み直しでぶつかることはない)
+      - name: 投稿の記録をコミット
+        if: ${{ !cancelled() && !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ ! -f data/x-post.json ]; then echo "記録なし"; exit 0; fi
+          git add data/x-post.json
+          if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
+          git commit -m "X に投稿 $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
