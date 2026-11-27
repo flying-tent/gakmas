@@ -1,10 +1,10 @@
 // 前日(日本時間)の再生回数ランキングを X に投稿する
 // - MVだけのランキング(TOP3)を投稿し、そのリプライで MV・音源・インストの合計のランキング(TOP3)を投稿する
 // - その日の回数は data/daily/ の記録から、ページの「今日」と同じ計算(scripts/build-site.mjs の buildSite)で出す
-// - 毎時の取得(.github/workflows/update.yml)から毎回呼ばれ、日本時間の POST_HOUR 時を過ぎていて、
-//   前日分をまだ投稿していないときだけ投稿する。投稿したことは data/x-post.json に残す(二重投稿を防ぐ)
+// - .github/workflows/post-x.yml から呼ばれ、前日分をまだ投稿していないときだけ投稿する(何時に動かしてもよい。1日1回だけ投稿する)
+//   投稿したことは data/x-post.json に残す(二重投稿を防ぐ)
 // 実行:
-//   node scripts/post-x.mjs --dry-run            投稿文をログに出すだけ(時刻・投稿済みの確認もしない)
+//   node scripts/post-x.mjs --dry-run            投稿文をログに出すだけ(投稿済みの確認もしない)
 //   node scripts/post-x.mjs --dry-run 2026-11-26  その日のランキングで試す
 //   X_API_KEY=… X_API_SECRET=… X_ACCESS_TOKEN=… X_ACCESS_TOKEN_SECRET=… node scripts/post-x.mjs
 import { readFile, writeFile } from "node:fs/promises";
@@ -12,7 +12,6 @@ import { createHmac, randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { buildSite } from "./build-site.mjs";
 
-const POST_HOUR = 12; // この時刻(日本時間)を過ぎたら投稿する
 const TOP_N = 3;
 const HASHTAGS = "#学マス #学園アイドルマスター";
 const GUIDE = "全曲のランキングはプロフィールのリンクから";
@@ -146,7 +145,6 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   const done = state.date === date ? state : { date };
 
   if (!dryRun) {
-    if (jstHour(now) < POST_HOUR) { console.log(`X:${POST_HOUR}時(日本時間)を過ぎてから投稿します`); process.exit(0); }
     if (done.mv && done.all) { console.log(`X:${date} の分は投稿済みです`); process.exit(0); }
   }
   const keys = {
