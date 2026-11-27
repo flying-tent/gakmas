@@ -45,6 +45,18 @@ jobs:
         env:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
 
+      # 前日のランキングを X に投稿する(12時(日本時間)を過ぎていて、まだ投稿していないときだけ。判定はスクリプトが行う)
+      # 投稿に失敗しても、再生回数の記録は続けてコミットする(次の毎時の実行で投稿し直す)
+      - name: X に投稿
+        if: github.event_name != 'push'
+        continue-on-error: true
+        run: node scripts/post-x.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+
       # サイトのファイルを更新したとき(曲名や歌唱の手動修正を変えたときなど)は、
       # API を使わずに今の記録からページ用のデータを作り直してから公開する
       - name: ページ用のデータを作り直す
@@ -73,6 +85,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/data.json data/state.json data/daily
+          if [ -f data/x-post.json ]; then git add data/x-post.json; fi
           if git diff --cached --quiet; then
             echo "変更なし"
           else
