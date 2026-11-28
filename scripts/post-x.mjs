@@ -9,6 +9,7 @@
 // 実行:
 //   node scripts/post-x.mjs --dry-run            投稿文をログに出し、画像を x-images/ に作るだけ(投稿済みの確認もしない)
 //   node scripts/post-x.mjs --dry-run 2026-11-26  その日のランキングで試す
+//   node scripts/post-x.mjs --force              投稿済みかを確かめずに、2件とも投稿し直す(同じ日の分がもう一度出る)
 //   X_API_KEY=… X_API_SECRET=… X_ACCESS_TOKEN=… X_ACCESS_TOKEN_SECRET=… node scripts/post-x.mjs
 import { readFile, writeFile, mkdir, mkdtemp } from "node:fs/promises";
 import { createHmac, randomBytes } from "node:crypto";
@@ -184,10 +185,14 @@ async function uploadImage(png, alt, keys) {
   return id;
 }
 
-async function tweet(text, keys, mediaId) {
+async function tweet(text, keys, mediaId, { force = false } = {}) {
   const { res, body } = await xPost("tweets", { text, ...(mediaId ? { media: { media_ids: [mediaId] } } : {}) }, keys);
   // 同じ文の投稿は X が断る。前の実行で投稿できていたのに記録が残らなかったとき(コミットの失敗など)なので、投稿済みとして扱う
-  if (res.status === 403 && /duplicate/i.test(JSON.stringify(body))) return "duplicate";
+  // ただし強制モードでは、投稿されなかったことがわかるように失敗にする
+  if (res.status === 403 && /duplicate/i.test(JSON.stringify(body))) {
+    if (force) throw new Error("最近の投稿と同じ文なので、X に断られました(強制モードでも同じ文は投稿できません)");
+    return "duplicate";
+  }
   if (!res.ok || !body?.data?.id) throw new Error(`X への投稿に失敗しました: ${res.status} ${JSON.stringify(body)}`);
   return body.data.id;
 }
@@ -195,11 +200,14 @@ async function tweet(text, keys, mediaId) {
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
+  const force = !dryRun && args.includes("--force"); // 投稿済みかを確かめない
   const date = args.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) || addDays(jstDate(new Date()), -1);
   const state = await readJson(POST_STATE_FILE, {});
-  const done = state.date === date ? state : { date };
+  // 強制モードでは前の記録を使わず、2件とも投稿する(記録は新しい投稿で上書きする)
+  const done = state.date === date && !force ? state : { date };
 
   if (!dryRun && KINDS.every((k) => done[k.key])) { console.log(`X:${date} の分は投稿済みです`); process.exit(0); }
+  if (force) console.log(`X:強制モードです。${date} の分を、投稿済みかを確かめずに投稿します`);
   const keys = {
     apiKey: process.env.X_API_KEY, apiSecret: process.env.X_API_SECRET,
     accessToken: process.env.X_ACCESS_TOKEN, accessTokenSecret: process.env.X_ACCESS_TOKEN_SECRET,
@@ -237,7 +245,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
         console.warn(`X:${e.message}(本文だけで投稿します)`);
       }
     }
-    done[p.kind.key] = await tweet(p.text, keys, mediaId);
+    done[p.kind.key] = await tweet(p.text, keys, mediaId, { force });
     await save();
     console.log(`X:${p.kind.label}のランキングを投稿しました(${done[p.kind.key]}${mediaId ? "、画像付き" : "、画像なし"})`);
   }

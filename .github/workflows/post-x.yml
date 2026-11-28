@@ -8,6 +8,10 @@ on:
         description: "お試し実行(投稿せず、投稿文をログに出し、画像を Artifacts に残すだけ)"
         type: boolean
         default: false
+      force:
+        description: "強制投稿(投稿済みかを確かめずに、前日分を2件とも投稿する。同じ日の分がもう一度出る)"
+        type: boolean
+        default: false
 
 # 権限は必要なジョブにだけ渡す（最小権限）
 permissions: {}
@@ -49,7 +53,7 @@ jobs:
 
       # 前日のランキングを投稿する(まだ投稿していないときだけ。判定はスクリプトが行う)
       - name: X に投稿
-        run: node scripts/post-x.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: node scripts/post-x.mjs ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.force && '--force' || '' }}
         env:
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
