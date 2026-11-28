@@ -1,6 +1,7 @@
 // 前日(日本時間)の再生回数ランキングを、画像付きで X に投稿する
 // - MVだけのランキングと、MV・音源・インストの合計のランキングを、別々の投稿にする(リプライにはしない)
-// - 画像は TOP10(scripts/ranking-image.mjs で作る)。本文は1位の曲の紹介とハッシュタグ
+// - 画像は TOP10(scripts/ranking-image.mjs で作る)。本文は「何のランキングか・1位の曲・注目の曲(あれば)・ハッシュタグ」の4行
+//   言い回しは日付で決まるいくつかの候補から選ぶ(日によって変わる。同じ日に作り直しても同じ文になる)
 // - 順位は前日の再生数の多い順。順位の変化は前々日の順位と比べる(▲上がった / ▼下がった / → 同じ / NEW 新曲)
 // - その日の回数は data/daily/ の記録から、ページの「今日」と同じ計算(scripts/build-site.mjs の buildSite)で出す
 // - .github/workflows/post-x.yml から呼ばれ、前日分をまだ投稿していないときだけ投稿する(何時に動かしてもよい。1日1回だけ投稿する)
@@ -27,11 +28,12 @@ const DAILY_DIR = new URL("../data/daily/", import.meta.url);
 const POST_STATE_FILE = new URL("../data/x-post.json", import.meta.url);
 const DRY_RUN_DIR = "x-images"; // お試し実行で画像を置く場所(実行したフォルダの中)
 const MAX_WEIGHT = 280; // X の文字数の上限(日本語や絵文字は1文字で2と数える)
-// 2種類のランキング。label は画像のラベル、header は本文の見出し
+// 2種類のランキング。label は画像のラベル、name は本文での呼び方
 const KINDS = [
-  { key: "mv", mvOnly: true, label: "MV", header: "学マス MV再生数ランキング" },
-  { key: "all", mvOnly: false, label: "全曲", header: "学マス 楽曲再生数ランキング" },
+  { key: "mv", mvOnly: true, label: "MV", name: "MVのみ" },
+  { key: "all", mvOnly: false, label: "全曲", name: "全曲" },
 ];
+const STREAK_MAX_DAYS = 60; // 連続1位をさかのぼって数える上限
 
 async function readJson(url, fallback) {
   try { return JSON.parse(await readFile(url, "utf8")); } catch { return fallback; }
@@ -81,7 +83,7 @@ export function ranking(songs, { mvOnly }) {
     .map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
-// 前々日の順位と比べた変化を付ける(前々日のランキングがないときは "none")
+// 前々日の順位と比べた変化を付ける(前々日のランキングがないときは "none")。prevRank は前々日の順位(なければ null)
 export function withChange(rows, prevRows) {
   const prevRank = new Map((prevRows || []).map((r) => [r.title, r.rank]));
   return rows.map((r) => {
@@ -91,7 +93,7 @@ export function withChange(rows, prevRows) {
       : p > r.rank ? { type: "up", n: p - r.rank }
       : p < r.rank ? { type: "down", n: r.rank - p }
       : { type: "same" };
-    return { ...r, change };
+    return { ...r, change, prevRank: p ?? null };
   });
 }
 
@@ -107,17 +109,68 @@ export function weight(text) {
 }
 
 const fmt = new Intl.NumberFormat("ja-JP");
-// 本文:見出し・1位の曲の紹介・ハッシュタグ。長すぎるときは歌唱者を「1人目ほか」に、それでも長ければ省く
-export function postText(kind, date, top) {
-  const singerModes = [(r) => r.singer, (r) => (r.idols.length > 1 ? `${r.idols[0]}ほか` : r.singer), () => ""];
-  let text = "";
-  for (const mode of singerModes) {
-    const singer = mode(top);
-    const intro = `1位は「${top.title}」${singer ? `(${singer})` : ""}！1日で${fmt.format(top.count)}回再生されました`;
-    text = [`${kind.header}(${slashDate(date)})`, intro, HASHTAGS].join("\n");
-    if (weight(text) <= MAX_WEIGHT) return text;
+const monthDay = (date) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`; // 11/27
+
+// 日付と場所の名前から、候補のどれを使うかを決める(同じ日なら何度作っても同じ)
+function pick(list, date, kind, slot) {
+  let h = 0;
+  for (const ch of `${date}:${kind.key}:${slot}`) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return list[h % list.length];
+}
+
+// 2行目:1位の曲の紹介。streak はその日を含めて何日連続で1位か
+function topLine(top, streak, date, kind) {
+  const t = `「${top.title}」`;
+  const c = top.change;
+  if (c.type === "new") return pick([`1位は新曲${t}でした✨`, `新曲${t}がいきなり1位に輝きました✨`], date, kind, "top");
+  if (c.type === "up") return pick([`1位は前日${top.prevRank}位から浮上した${t}でした🎉`, `前日${top.prevRank}位の${t}が1位に輝きました🎉`], date, kind, "top");
+  if (c.type === "same") {
+    const lines = [`1位は変わらず${t}でした💪`, `1位は前日に続いて${t}でした💪`];
+    if (streak >= 2) lines.push(`${t}が${streak}日連続の1位です💪`, `1位は${t}、これで${streak}日連続です💪`);
+    return pick(lines, date, kind, "top");
   }
-  return text;
+  return `1位は${t}でした👑`;
+}
+
+// 3行目:注目の曲。1位以外の TOP10 から、新しくランクインした曲(新曲、または前々日の11位以下・記録なしから TOP10 入り)、
+// なければ3つ以上順位を上げた曲を1曲だけ選ぶ(条件に合う曲が複数あるときは順位の高い曲)。なければ null
+export function highlightLine(rows, date, kind) {
+  const rest = rows.slice(1);
+  const entered = rest.find((r) => r.change.type === "new" || (r.change.type !== "none" && (r.prevRank == null || r.prevRank > TOP_N)));
+  if (entered) {
+    const t = `「${entered.title}」`;
+    const lines = [`新しくランクインした${t}も要チェックです👀`];
+    if (entered.change.type === "new") lines.push(`新曲${t}が${entered.rank}位に初登場です👀`);
+    else if (entered.prevRank != null) lines.push(`前日${entered.prevRank}位の${t}が${entered.rank}位にランクインしました⤴️`);
+    return pick(lines, date, kind, "highlight");
+  }
+  const riser = rest.find((r) => r.change.type === "up" && r.change.n >= 3);
+  if (riser) {
+    const t = `「${riser.title}」`;
+    return pick([`${t}が${riser.change.n}ランクアップ⤴️`, `${t}が前日${riser.prevRank}位から${riser.rank}位にランクアップしました⤴️`], date, kind, "highlight");
+  }
+  return null;
+}
+
+// 本文
+export function postText(kind, date, rows, streak) {
+  const head = pick([
+    `${monthDay(date)}の${kind.name}のランキングはこちら！`,
+    `${monthDay(date)}の${kind.name}ランキングを発表します！`,
+    `${monthDay(date)}の${kind.name}のランキングをお届けします！`,
+  ], date, kind, "head");
+  return [head, topLine(rows[0], streak, date, kind), highlightLine(rows, date, kind), HASHTAGS].filter(Boolean).join("\n");
+}
+
+// その日の1位の曲が、その日を含めて何日連続で1位か(さかのぼれる記録がなくなったら、そこまでで数える)
+async function topStreak(date, kind, title) {
+  let n = 1;
+  for (let d = addDays(date, -1); n < STREAK_MAX_DAYS; d = addDays(d, -1)) {
+    const { songs } = await songsOf(d, { strict: false });
+    if (!songs || ranking(songs, kind)[0]?.title !== title) break;
+    n++;
+  }
+  return n;
 }
 
 // 画像の代替テキスト(読み上げ用。1000文字まで)
@@ -137,9 +190,10 @@ export async function buildPosts(date) {
   return {
     posts: await Promise.all(KINDS.map(async (kind) => {
       const rows = withChange(ranking(songs, kind), prev.songs ? ranking(prev.songs, kind) : null).slice(0, TOP_N);
+      const streak = await topStreak(date, kind, rows[0].title);
       return {
         kind, rows,
-        text: postText(kind, date, rows[0]),
+        text: postText(kind, date, rows, streak),
         alt: altText(kind, date, rows),
         html: await rankingHtml({ label: kind.label, date: slashDate(date), rows }),
       };
