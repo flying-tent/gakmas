@@ -62,3 +62,22 @@
 - 費用:X API は従量課金(クレジットを先に買う)。1日2件で、月に60件ほど(画像のアップロードの分は Console で確認)
 - 試し方:`node scripts/post-x.mjs --dry-run`(前日)または `node scripts/post-x.mjs --dry-run 2026-11-26` で、投稿文と代替テキストをログに出し、画像を `x-images/` に作る。「X にランキングを投稿」の「お試し実行」では、画像を Artifacts(`x-images`)に残す
 - 変えたいとき:件数・ハッシュタグ・呼び方は `scripts/post-x.mjs` の先頭の `TOP_N`・`HASHTAGS`・`KINDS`。本文の言い回しは `topLine`・`highlightLine`・`postText` の候補
+
+## アクセス解析と週次レポート(analytics.js・scripts/weekly-report.mjs)
+
+Google アナリティクス 4(GA4)でアクセスを計測し、毎週の数字と AI(Gemini)の改善案を Issue にします。
+
+- 計測:各ページの `<head>` で `analytics.js` を読む。`analytics.js` の `GA_ID` に測定ID(`G-` から始まる)を入れると計測を始める(空なら何も送らない)。手元(localhost・file:)と `?demo` では送らない。Google シグナルと広告のカスタマイズは切ってある
+- mv.html の操作イベント(`mv.html` の `logEvent`):`open_song`(曲のポップアップ。`song_title`・`from`)・`open_idol`(アイドルのポップアップ。`idol`。「戻る」は数えない)・`open_youtube`(`song_title`・`video_type`)・`change_setting`(`setting` = view / unit / mvOnly、`value`)・`search`(`search_term`)。どのイベントにも、そのときの `period`(today / total)・`unit`・`mv_only`・`layout`(pc / mobile)を付ける
+- 計測していることは `privacy.html`(アクセス解析について)に書き、各ページの下からリンクしている。送る内容を変えたらそちらも直す
+- 週次レポート:`.github/workflows/weekly-report.yml`「週次アクセスレポート」が毎週月曜の朝(日本時間9時ごろ)に、前の週(月〜日)の数字をその前の週と比べて集め、Gemini に改善案を書かせて Issue にする。AI に渡すのは集計した数字と、この README の「MV再生回数」の画面の説明だけ。AI が失敗しても数字だけで Issue を作る。手動なら Run workflow(「お試し実行」で Issue を作らずログに出す)
+- 試し方:`node scripts/weekly-report.mjs --dry-run --sample`(ダミーの数字。`GEMINI_API_KEY` があれば AI の案も出る)
+
+### 初めの設定
+
+1. GA4:[Google アナリティクス](https://analytics.google.com/)でプロパティを作り(タイムゾーンは日本)、ウェブのデータストリームにサイトの URL を登録する。測定ID を `analytics.js` の `GA_ID` に入れる
+2. カスタムディメンション:GA の「管理 → カスタム定義」で、イベントスコープのディメンションを次のパラメータ名で登録する:`setting`・`value`・`song_title`・`idol`・`video_type`・`period`・`layout`・`search_term`(未登録の表はレポートで「取れませんでした」と出るだけで、ほかは動く。登録した日より前の分は取れない)
+3. データ保持:「管理 → データの収集と修正 → データ保持」を14か月にしておく(週次レポートは直近2週しか使わないが、あとで振り返るとき用)
+4. サービスアカウント:[Google Cloud](https://console.cloud.google.com/) でプロジェクトを作り、「Google Analytics Data API」を有効にする。サービスアカウントを作って鍵(JSON)を発行し、そのメールアドレスを GA の「管理 → プロパティのアクセス管理」に「閲覧者」で追加する
+5. Gemini:[Google AI Studio](https://aistudio.google.com/) で API キーを作る(無料枠で足りる。無料枠では送った内容が Google の改善に使われるので、渡すのは集計した数字だけにしている)
+6. リポジトリの Secrets に `GA_PROPERTY_ID`(プロパティID の数字)・`GA_SA_KEY`(鍵の JSON をそのまま)・`GEMINI_API_KEY` を登録する。モデルを変えたいときは Variables に `GEMINI_MODEL`(省略時は `gemini-2.5-flash`)
