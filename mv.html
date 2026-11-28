@@ -387,11 +387,11 @@
         <label class="mv-only"><span>MVだけで集計</span><input type="checkbox" id="mvOnly" role="switch"></label>
         </div></div>
       </div>
-      <!-- 今の表示条件(期間・表示・MVだけで集計)。タップで上の設定を開け閉めする -->
+      <!-- 今の表示条件(期間・表示・全曲かMVのみか)。タップで上の設定を開け閉めする -->
       <button type="button" class="conditions" id="conditions" aria-expanded="false" aria-controls="settingsPanel">
         <span class="chip chip-period" id="chipPeriod"></span>
         <span class="chip" id="chipUnit"></span>
-        <span class="chip chip-mv hidden" id="chipMv">MVのみ</span>
+        <span class="chip" id="chipMv">全曲</span>
       </button>
       </div>
       <div class="boards">
@@ -721,7 +721,7 @@ function renderKpiSet(sfx, view) {
     const vs = state.videos;
     const today = isToday();
     const noData = today && !state.hasPrev;
-    $k("kpiTotalLabel").textContent = (today ? "今日の再生回数" : "総再生回数") + (state.mvOnly ? "(MVのみ)" : "");
+    $k("kpiTotalLabel").textContent = (today ? "今日の再生回数" : "総再生回数") + `(${scopeLabel()})`;
     const total = vs.reduce((s, v) => s + metric(v), 0);
     if (noData) $k("kpiTotal").textContent = "–"; else countUp($k("kpiTotal"), total, todayFmt());
     diffEl($k("kpiTotalDiff"), today ? null : sumDiff(vs));
@@ -1149,11 +1149,14 @@ document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addE
 // 検索欄の下のチップ:今の表示条件(期間はスマホだけ。PCでは2つの表の見出しでわかるので隠す)
 const PERIOD_LABELS = { today: "今日", total: "累計" };
 const UNIT_LABELS = { song: "曲", idol: "アイドル" };
+// 集計の範囲(全曲か MVのみか)。オン・オフどちらでも常に表示する
+function scopeLabel() { return state.mvOnly ? "MVのみ" : "全曲"; }
 function renderConditions() {
   $("chipPeriod").textContent = PERIOD_LABELS[state.view];
   $("chipUnit").textContent = UNIT_LABELS[state.unit];
-  $("chipMv").classList.toggle("hidden", !state.mvOnly);
-  const parts = [...(isWide() ? [] : [PERIOD_LABELS[state.view]]), UNIT_LABELS[state.unit], ...(state.mvOnly ? ["MVのみ"] : [])];
+  $("chipMv").textContent = scopeLabel();
+  $("chipMv").classList.toggle("chip-mv", state.mvOnly);
+  const parts = [...(isWide() ? [] : [PERIOD_LABELS[state.view]]), UNIT_LABELS[state.unit], scopeLabel()];
   $("conditions").setAttribute("aria-label", `表示条件:${parts.join("・")}。タップで切り替えを${settingsOpen() ? "閉じる" : "開く"}`);
 }
 // フィルタボタン:検索欄の下の設定を開け閉めする(Esc でも閉じる)
