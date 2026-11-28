@@ -29,7 +29,7 @@ const MAX_WEIGHT = 280; // X の文字数の上限(日本語や絵文字は1文�
 // 2種類のランキング。label は画像のラベル、header は本文の見出し
 const KINDS = [
   { key: "mv", mvOnly: true, label: "MV", header: "学マス MV再生数ランキング" },
-  { key: "all", mvOnly: false, label: "MV・音源・インスト合計", header: "学マス 楽曲再生数ランキング" },
+  { key: "all", mvOnly: false, label: "全曲", header: "学マス 楽曲再生数ランキング" },
 ];
 
 async function readJson(url, fallback) {

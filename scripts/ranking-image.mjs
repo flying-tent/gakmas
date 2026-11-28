@@ -16,7 +16,7 @@ export const WIDTH = 1080;
 export const HEIGHT = 1440;
 const LOGO = new URL("./x-assets/logo.png", import.meta.url);
 const MV_HTML = new URL("../mv.html", import.meta.url);
-const FALLBACK_COLOR = "#2B4C9B"; // 歌唱アイドルがわからない曲の帯の色
+const FALLBACK_COLOR = "#A7AEBD"; // 歌唱アイドルがわからない曲の帯の色
 
 // mv.html の IDOLS から { 名前: 色 } を作る
 export async function idolColors() {
@@ -43,7 +43,7 @@ function changeHtml(change) {
   switch (change?.type) {
     case "up": return `<span class="ch up"><i>▲</i>${change.n}</span>`;
     case "down": return `<span class="ch down"><i>▼</i>${change.n}</span>`;
-    case "same": return `<span class="ch same">→</span>`;
+    case "same": return `<span class="ch keep">→</span>`;
     case "new": return `<span class="ch new">NEW</span>`;
     default: return `<span class="ch same">－</span>`;
   }
@@ -101,7 +101,7 @@ export async function rankingHtml({ label, date, rows }) {
   .change{width:118px;flex:none;text-align:center}
   .ch{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
   .ch i{font-style:normal;font-size:24px;margin-right:4px;vertical-align:3px}
-  .ch.up{color:#E5484D}.ch.down{color:#3B7BEF}.ch.same{color:#8A93A8}.ch.new{color:#D99A00;font-size:28px;letter-spacing:.04em}
+  .ch.up{color:#E5484D}.ch.down{color:#3B7BEF}.ch.keep{color:#2FA36B}.ch.same{color:#8A93A8}.ch.new{color:#D99A00;font-size:28px;letter-spacing:.04em}
   .row.first .t{font-size:42px}
   </style></head><body>
   <div class="deco tl1"></div><div class="deco tl2"></div><div class="deco br1"></div><div class="deco br2"></div>
