@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <title>学マス楽曲レポート</title>
+<script src="analytics.js"></script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!--
   再生回数は GitHub Actions(.github/workflows/update.yml)が毎日取得して data/data.json に記録します。
@@ -408,7 +409,7 @@
 
 
   </main>
-  <footer class="note foot">本ツールは非公式のファンメイドツールです。<br>「学園アイドルマスター」の公式とは一切関係ありません。<br>再生数とサムネイルはYouTubeの公式動画をもとにしています。<br>THE IDOLM@STER™ &amp; ©Bandai Namco Entertainment Inc.</footer>
+  <footer class="note foot">本ツールは非公式のファンメイドツールです。<br>「学園アイドルマスター」の公式とは一切関係ありません。<br>再生数とサムネイルはYouTubeの公式動画をもとにしています。<br>THE IDOLM@STER™ &amp; ©Bandai Namco Entertainment Inc.<br><a href="privacy.html" style="color:inherit">アクセス解析について</a></footer>
 </div>
 <dialog id="detail" aria-labelledby="detailName" tabindex="-1">
   <div class="d-head" id="detailHead">
@@ -425,6 +426,16 @@
 <script>
 // ===================== 設定 =====================
 const DATA_URL = "data/data.json";
+// アクセス解析のイベントを送る(analytics.js)。どのイベントにも、そのときの表示条件(期間・単位・MVだけで集計)と画面の幅を付ける
+// 送るイベント:open_song(曲のポップアップ)・open_idol(アイドルのポップアップ)・open_youtube(YouTubeへ)・change_setting(表示の切り替え)・search(検索)
+function logEvent(name, params = {}) {
+  try {
+    window.gaTrack?.(name, {
+      ...params,
+      period: currentView(), unit: state.unit, mv_only: state.mvOnly ? "on" : "off", layout: isWide() ? "pc" : "mobile",
+    });
+  } catch {}
+}
 
 // アイドル一覧(この順でグラフに並ぶ)。概要欄の「歌:」行から name を探す
 // color: バーの色
@@ -1048,7 +1059,9 @@ function songRow(v, color, maxViews, idx = 0, opts = {}) {
   return a;
 }
 
-function openDetail(idol) {
+// isBack:曲のポップアップから「戻る」で戻ってきたとき(開いた回数に数えない)
+function openDetail(idol, { isBack = false } = {}) {
+  if (!isBack) logEvent("open_idol", { idol: idol.name });
   withViews(() => renderDetail(idol));
 }
 function renderDetail(idol) {
@@ -1072,7 +1085,7 @@ function renderDetail(idol) {
     list.forEach((v) => {
       const row = songRow(v, idol.color, maxViews, rowIdx++);
       row.setAttribute("aria-label", `${v.title}(${v.singer})${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(v))}回${viewsLabel(v.views)}。タップで動画の一覧`);
-      row.addEventListener("click", () => openSong(v, { back: () => openDetail(idol) }));
+      row.addEventListener("click", () => openSong(v, { back: () => openDetail(idol, { isBack: true }) }));
       body.append(row);
     });
   };
@@ -1085,6 +1098,7 @@ function renderDetail(idol) {
 const TYPE_LABELS = { mv: "MV", vocal: "音源", inst: "インスト" };
 const typeOf = (m) => (m.source === "audio" ? (m.instrumental ? "inst" : "vocal") : "mv");
 function openSong(song, opts = {}) {
+  logEvent("open_song", { song_title: song.title, from: opts.back ? "idol" : "ranking" });
   withViews(() => renderSong(song, opts));
 }
 function renderSong(song, opts) {
@@ -1105,6 +1119,7 @@ function renderSong(song, opts) {
     const barColor = (m.solo && IDOLS.find((x) => x.name === m.solo)?.color) || color;
     const row = songRow(m, barColor, maxViews, i, { href: youtubeUrl(m.id), label: labels });
     row.setAttribute("aria-label", `${label} ${song.title}${isToday() ? " 今日の再生回数 " : " 再生回数 "}${fmt.format(metric(m))}回${viewsLabel(m.views)}。YouTubeで開く`);
+    row.addEventListener("click", () => logEvent("open_youtube", { song_title: song.title, video_type: typeOf(m) }));
     body.append(row);
   });
   showDetail();
@@ -1141,6 +1156,7 @@ function showDetail() {
 document.querySelectorAll('.switches input[type="radio"]').forEach((r) => r.addEventListener("change", () => {
   if (!r.checked) return;
   state[r.name] = r.value;
+  logEvent("change_setting", { setting: r.name, value: r.value });
   if (r.name === "unit") updateSearchPlaceholder();
   if (r.name === "view") renderKpis();
   renderConditions();
@@ -1180,6 +1196,7 @@ renderConditions();
 $("mvOnly").addEventListener("change", (e) => {
   state.mvOnly = e.target.checked;
   saveMvOnly(state.mvOnly);
+  logEvent("change_setting", { setting: "mvOnly", value: state.mvOnly ? "on" : "off" });
   renderConditions();
   regroup();
   renderKpis();
@@ -1190,6 +1207,7 @@ $("mvOnly").addEventListener("change", (e) => {
 // タブを切り替えても検索語はそのまま、切り替えた先の一覧にも効く
 function applySearch() {
   state.query = $("searchInput").value;
+  if (state.query.trim()) logEvent("search", { search_term: state.query.trim().slice(0, 100) });
   renderBars();
 }
 function updateSearchPlaceholder() {

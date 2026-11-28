@@ -1,0 +1,41 @@
+name: 週次アクセスレポート
+
+# 毎週月曜の朝(日本時間 9時ごろ)に、前の週(月〜日)のアクセス解析の数字と AI の改善案を Issue にする
+on:
+  schedule:
+    - cron: "13 0 * * 1" # 月曜 0:13(UTC)= 日本時間 9:13。混雑時は遅れることがある
+  workflow_dispatch: # Actions画面から手動でも実行できる
+    inputs:
+      dry_run:
+        description: "お試し実行(Issue を作らず、レポートをログに出すだけ)"
+        type: boolean
+        default: false
+
+# 権限は必要なジョブにだけ渡す（最小権限）
+permissions: {}
+
+concurrency:
+  group: weekly-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # README(ページの説明)を読むため
+      issues: write # レポートの Issue を作るため
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+
+      - name: レポートを作る
+        run: node scripts/weekly-report.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+          GA_SA_KEY: ${{ secrets.GA_SA_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GITHUB_TOKEN: ${{ github.token }}
