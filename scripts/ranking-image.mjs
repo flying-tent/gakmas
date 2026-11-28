@@ -73,8 +73,6 @@ export async function rankingHtml({ label, date, rows }) {
   .deco{position:absolute;pointer-events:none}
   .tl1{left:0;top:0;width:250px;height:200px;background:linear-gradient(135deg,#B9D3F7,#DCE9FB);clip-path:polygon(0 0,100% 0,0 100%)}
   .tl2{left:0;top:0;width:150px;height:120px;background:#A3C4F3;clip-path:polygon(0 0,100% 0,0 100%);opacity:.7}
-  .br1{right:0;bottom:0;width:330px;height:230px;background:linear-gradient(315deg,#B9D3F7,#E3EEFC);clip-path:polygon(100% 0,100% 100%,0 100%)}
-  .br2{right:0;bottom:0;width:190px;height:130px;background:#A3C4F3;clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.7}
   header{position:absolute;left:44px;top:70px;right:44px;height:190px;display:flex;align-items:center;gap:28px}
   .logo{width:170px;height:170px;border-radius:50%;background:url(${logo}) center/112% no-repeat;flex:none;box-shadow:0 6px 18px rgba(20,32,74,.18)}
   h1{font-size:60px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap}
@@ -104,7 +102,7 @@ export async function rankingHtml({ label, date, rows }) {
   .ch.up{color:#E5484D}.ch.down{color:#3B7BEF}.ch.keep{color:#2FA36B}.ch.same{color:#8A93A8}.ch.new{color:#D99A00;font-size:28px;letter-spacing:.04em}
   .row.first .t{font-size:42px}
   </style></head><body>
-  <div class="deco tl1"></div><div class="deco tl2"></div><div class="deco br1"></div><div class="deco br2"></div>
+  <div class="deco tl1"></div><div class="deco tl2"></div>
   <svg class="deco stars" width="160" height="190" viewBox="0 0 160 190" aria-hidden="true">${star(92, 56, 46, "#F5CB5C")}${star(142, 112, 17, "#5B8DDF")}${star(62, 150, 30, "#8DB3EE")}</svg>
   <header><div class="logo"></div><div><h1>初星学園 音楽ランキング</h1><div class="sub">HATSUBOSHI DAILY CHART</div></div></header>
   <div class="meta"><div class="line"></div><div class="chip label">${esc(label)}</div><div class="chip date">${esc(date)}</div></div>
