@@ -5,7 +5,7 @@ on:
   workflow_dispatch: # Actions画面からの手動実行や、外からの起動
     inputs:
       dry_run:
-        description: "お試し実行(投稿せず、投稿文をログに出すだけ)"
+        description: "お試し実行(投稿せず、投稿文をログに出し、画像を Artifacts に残すだけ)"
         type: boolean
         default: false
 
@@ -30,6 +30,23 @@ jobs:
         with:
           node-version: 20
 
+      # 画像の文字をページ(mv.html)と同じ IBM Plex Sans JP で描くため、フォントを入れる
+      # (取れなかったときは Noto Sans CJK で代わりに描く)
+      - name: フォントを入れる
+        run: |
+          mkdir -p ~/.local/share/fonts
+          ok=1
+          for w in Regular Medium SemiBold Bold; do
+            curl -fsSL --retry 3 -o ~/.local/share/fonts/IBMPlexSansJP-$w.ttf \
+              "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsansjp/IBMPlexSansJP-$w.ttf" || ok=0
+          done
+          if [ "$ok" = 0 ]; then
+            echo "::warning::IBM Plex Sans JP を取得できなかったので、Noto Sans CJK で描きます"
+            sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
+          fi
+          fc-cache -f >/dev/null
+          fc-list | grep -E "IBM Plex Sans JP|Noto Sans CJK JP" | head -3
+
       # 前日のランキングを投稿する(まだ投稿していないときだけ。判定はスクリプトが行う)
       - name: X に投稿
         run: node scripts/post-x.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
@@ -38,6 +55,13 @@ jobs:
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+
+      - name: お試し実行の画像を残す
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: x-images
+          path: x-images/
 
       # 1件目だけ投稿できて2件目で失敗したときも、1件目の記録は残す(次の実行で残りだけ投稿する)
       # 再生回数の記録のコミットと同時に push されることがあるので、ぶつかったら最新の main に積み直して push し直す
